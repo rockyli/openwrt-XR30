@@ -209,7 +209,8 @@ platform_do_upgrade() {
 	cudy,wr3000p-v1|\
 	huasifei,wh3000-pro-nand|\
 	huasifei,wh3000r-nand|\
-	jiorouter,ax6000-jidu6101)
+	jiorouter,ax6000-jidu6101|\
+	jiorouter,ax6000-jidu6j01)
 		CI_UBIPART="ubi"
 		nand_do_upgrade "$1"
 		;;
@@ -460,7 +461,8 @@ platform_pre_upgrade() {
 	buffalo,wsr-6000ax8)
 		buffalo_initial_setup
 		;;
-	jiorouter,ax6000-jidu6101)
+	jiorouter,ax6000-jidu6101|\
+	jiorouter,ax6000-jidu6j01)
 		jiorouter_initial_setup
 		;;
 	xiaomi,mi-router-ax3000t|\
