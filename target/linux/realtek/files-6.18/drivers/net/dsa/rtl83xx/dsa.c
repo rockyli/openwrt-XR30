@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 #include <net/dsa.h>
+#include <linux/bitfield.h>
 #include <linux/etherdevice.h>
 #include <linux/if_bridge.h>
 #include <linux/if_vlan.h>
@@ -355,18 +356,20 @@ static void rtldsa_phylink_mac_link_down(struct phylink_config *config,
 {
 	struct dsa_port *dp = dsa_phylink_to_port(config);
 	struct rtl838x_switch_priv *priv = dp->ds->priv;
+	const struct rtldsa_mac_force_mode_cfg *cfg;
 	int port = dp->index;
 
 	/* Stop TX/RX to port */
 	sw_w32_mask(0x3, 0, priv->r->mac_port_ctrl(port));
 
+	cfg = &priv->r->mac_force_mode;
 	if (priv->family_id == RTL9300_FAMILY_ID) {
 		/* Preserve force mode while forcing the link down. */
-		sw_w32_mask(RTL930X_FORCE_LINK_EN, 0,
+		sw_w32_mask(cfg->link_up_mask, 0,
 			    priv->r->mac_force_mode_ctrl(port));
 	} else {
 		/* No longer force link */
-		sw_w32_mask(priv->r->mac_force_mode_mask, 0,
+		sw_w32_mask(cfg->link_force_en_mask | cfg->link_up_mask, 0,
 			    priv->r->mac_force_mode_ctrl(port));
 	}
 }
@@ -380,6 +383,7 @@ static void rtldsa_83xx_phylink_mac_link_up(struct phylink_config *config,
 {
 	struct dsa_port *dp = dsa_phylink_to_port(config);
 	struct rtl838x_switch_priv *priv = dp->ds->priv;
+	const struct rtldsa_mac_force_mode_cfg *cfg;
 	int port = dp->index;
 	u32 mcr, spdsel;
 
@@ -390,42 +394,21 @@ static void rtldsa_83xx_phylink_mac_link_up(struct phylink_config *config,
 	else
 		spdsel = RTL_SPEED_10;
 
+	cfg = &priv->r->mac_force_mode;
 	mcr = sw_r32(priv->r->mac_force_mode_ctrl(port));
+	mcr &= ~(cfg->rx_pause_mask | cfg->tx_pause_mask |
+		 cfg->duplex_mask | cfg->speed_mask);
+	mcr |= cfg->link_up_mask;
+	mcr |= field_prep(cfg->speed_mask, spdsel);
 
-	if (priv->family_id == RTL8380_FAMILY_ID) {
-		mcr &= ~RTL838X_RX_PAUSE_EN;
-		mcr &= ~RTL838X_TX_PAUSE_EN;
-		mcr &= ~RTL838X_DUPLEX_MODE;
-		mcr &= ~RTL838X_SPEED_MASK;
-		mcr |= RTL83XX_FORCE_LINK_EN;
-		mcr |= spdsel << RTL838X_SPEED_SHIFT;
-
-		if (tx_pause)
-			mcr |= RTL838X_TX_PAUSE_EN;
-		if (rx_pause)
-			mcr |= RTL838X_RX_PAUSE_EN;
-		if (duplex == DUPLEX_FULL || priv->lagmembers & BIT_ULL(port))
-			mcr |= RTL838X_DUPLEX_MODE;
-		if (dsa_port_is_cpu(dp))
-			mcr |= RTL83XX_FORCE_EN;
-
-	} else if (priv->family_id == RTL8390_FAMILY_ID) {
-		mcr &= ~RTL839X_RX_PAUSE_EN;
-		mcr &= ~RTL839X_TX_PAUSE_EN;
-		mcr &= ~RTL839X_DUPLEX_MODE;
-		mcr &= ~RTL839X_SPEED_MASK;
-		mcr |= RTL83XX_FORCE_LINK_EN;
-		mcr |= spdsel << RTL839X_SPEED_SHIFT;
-
-		if (tx_pause)
-			mcr |= RTL839X_TX_PAUSE_EN;
-		if (rx_pause)
-			mcr |= RTL839X_RX_PAUSE_EN;
-		if (duplex == DUPLEX_FULL || priv->lagmembers & BIT_ULL(port))
-			mcr |= RTL839X_DUPLEX_MODE;
-		if (dsa_port_is_cpu(dp))
-			mcr |= RTL83XX_FORCE_EN;
-	}
+	if (tx_pause)
+		mcr |= cfg->tx_pause_mask;
+	if (rx_pause)
+		mcr |= cfg->rx_pause_mask;
+	if (duplex == DUPLEX_FULL || priv->lagmembers & BIT_ULL(port))
+		mcr |= cfg->duplex_mask;
+	if (dsa_port_is_cpu(dp))
+		mcr |= cfg->force_en_mask;
 
 	pr_debug("%s port %d, mode %x, speed %d, duplex %d, txpause %d, rxpause %d: set mcr=%08x\n",
 		 __func__, port, mode, speed, duplex, tx_pause, rx_pause, mcr);
@@ -444,6 +427,7 @@ static void rtldsa_93xx_phylink_mac_link_up(struct phylink_config *config,
 {
 	struct dsa_port *dp = dsa_phylink_to_port(config);
 	struct rtl838x_switch_priv *priv = dp->ds->priv;
+	const struct rtldsa_mac_force_mode_cfg *cfg;
 	int port = dp->index;
 	bool force_link;
 	u32 mcr, spdsel;
@@ -451,10 +435,11 @@ static void rtldsa_93xx_phylink_mac_link_up(struct phylink_config *config,
 	if (priv->family_id != RTL9300_FAMILY_ID)
 		goto restart;
 
+	cfg = &priv->r->mac_force_mode;
 	force_link = dsa_port_is_cpu(dp) || mode == MLO_AN_FIXED ||
 		     (!priv->ports[port].phy && phydev);
 	if (!force_link) {
-		sw_w32_mask(RTL930X_FORCE_EN, 0,
+		sw_w32_mask(cfg->force_en_clear_mask, 0,
 			    priv->r->mac_force_mode_ctrl(port));
 		goto restart;
 	}
@@ -474,24 +459,19 @@ static void rtldsa_93xx_phylink_mac_link_up(struct phylink_config *config,
 
 	mcr = sw_r32(priv->r->mac_force_mode_ctrl(port));
 
-	mcr &= ~RTL930X_RX_PAUSE_EN;
-	mcr &= ~RTL930X_TX_PAUSE_EN;
-	mcr &= ~RTL930X_DUPLEX_MODE;
-	mcr &= ~RTL930X_SPEED_MASK;
-	mcr |= RTL930X_MAC_FORCE_FC_EN;
-	mcr |= RTL930X_FORCE_LINK_EN;
-	mcr |= spdsel << RTL930X_SPEED_SHIFT;
+	mcr &= ~(cfg->rx_pause_mask | cfg->tx_pause_mask |
+		 cfg->duplex_mask | cfg->speed_mask);
+	mcr |= cfg->force_en_mask | cfg->link_up_mask;
+	mcr |= field_prep(cfg->speed_mask, spdsel);
 	if (!priv->ports[port].phy && phydev)
-		mcr &= ~RTL930X_MEDIA_SEL;
+		mcr &= ~cfg->media_mask;
 
 	if (tx_pause)
-		mcr |= RTL930X_TX_PAUSE_EN;
+		mcr |= cfg->tx_pause_mask;
 	if (rx_pause)
-		mcr |= RTL930X_RX_PAUSE_EN;
+		mcr |= cfg->rx_pause_mask;
 	if (duplex == DUPLEX_FULL || priv->lagmembers & BIT_ULL(port))
-		mcr |= RTL930X_DUPLEX_MODE;
-
-	mcr |= RTL930X_FORCE_EN;
+		mcr |= cfg->duplex_mask;
 
 	pr_debug("%s port %d, mode %x, speed %d, duplex %d, txpause %d, rxpause %d: set mcr=%08x\n",
 		 __func__, port, mode, speed, duplex, tx_pause, rx_pause, mcr);
