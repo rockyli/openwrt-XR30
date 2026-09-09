@@ -443,9 +443,6 @@ static void rtldsa_93xx_phylink_mac_link_up(struct phylink_config *config,
 	bool force_link;
 	u32 mcr, spdsel;
 
-	if (priv->family_id != RTL9300_FAMILY_ID)
-		goto restart;
-
 	cfg = &priv->r->mac_force_mode;
 	force_link = dsa_port_is_cpu(dp) || mode == MLO_AN_FIXED ||
 		     (!priv->ports[port].phy && phydev);
