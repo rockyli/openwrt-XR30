@@ -338,6 +338,13 @@ static void rtldsa_93xx_phylink_mac_config(struct phylink_config *config,
 	if (port == priv->r->cpu_port)
 		return;
 
+	/* Select PCS before dropping force mode to avoid a transient link down. */
+	if (!priv->ports[port].phy && priv->r->mac_link_state_source_set &&
+	    phylink_autoneg_inband(mode))
+		priv->r->mac_link_state_source_set(port,
+						  RTLDSA_MAC_LINK_STATE_SOURCE_PCS,
+						  state->interface);
+
 	/* Disable MAC completely */
 	sw_w32(0, priv->r->mac_force_mode_ctrl(port));
 }
@@ -353,9 +360,15 @@ static void rtldsa_phylink_mac_link_down(struct phylink_config *config,
 	/* Stop TX/RX to port */
 	sw_w32_mask(0x3, 0, priv->r->mac_port_ctrl(port));
 
-	/* No longer force link */
-	sw_w32_mask(priv->r->mac_force_mode_mask, 0,
-		    priv->r->mac_force_mode_ctrl(port));
+	if (priv->family_id == RTL9300_FAMILY_ID) {
+		/* Preserve force mode while forcing the link down. */
+		sw_w32_mask(RTL930X_FORCE_LINK_EN, 0,
+			    priv->r->mac_force_mode_ctrl(port));
+	} else {
+		/* No longer force link */
+		sw_w32_mask(priv->r->mac_force_mode_mask, 0,
+			    priv->r->mac_force_mode_ctrl(port));
+	}
 }
 
 static void rtldsa_83xx_phylink_mac_link_up(struct phylink_config *config,
@@ -432,7 +445,19 @@ static void rtldsa_93xx_phylink_mac_link_up(struct phylink_config *config,
 	struct dsa_port *dp = dsa_phylink_to_port(config);
 	struct rtl838x_switch_priv *priv = dp->ds->priv;
 	int port = dp->index;
+	bool force_link;
 	u32 mcr, spdsel;
+
+	if (priv->family_id != RTL9300_FAMILY_ID)
+		goto restart;
+
+	force_link = dsa_port_is_cpu(dp) || mode == MLO_AN_FIXED ||
+		     (!priv->ports[port].phy && phydev);
+	if (!force_link) {
+		sw_w32_mask(RTL930X_FORCE_EN, 0,
+			    priv->r->mac_force_mode_ctrl(port));
+		goto restart;
+	}
 
 	if (speed == SPEED_10000)
 		spdsel = RTL_SPEED_10000;
@@ -449,28 +474,36 @@ static void rtldsa_93xx_phylink_mac_link_up(struct phylink_config *config,
 
 	mcr = sw_r32(priv->r->mac_force_mode_ctrl(port));
 
-	if (priv->family_id == RTL9300_FAMILY_ID) {
-		mcr &= ~RTL930X_RX_PAUSE_EN;
-		mcr &= ~RTL930X_TX_PAUSE_EN;
-		mcr &= ~RTL930X_DUPLEX_MODE;
-		mcr &= ~RTL930X_SPEED_MASK;
-		mcr |= RTL930X_FORCE_LINK_EN;
-		mcr |= spdsel << RTL930X_SPEED_SHIFT;
+	mcr &= ~RTL930X_RX_PAUSE_EN;
+	mcr &= ~RTL930X_TX_PAUSE_EN;
+	mcr &= ~RTL930X_DUPLEX_MODE;
+	mcr &= ~RTL930X_SPEED_MASK;
+	mcr |= RTL930X_MAC_FORCE_FC_EN;
+	mcr |= RTL930X_FORCE_LINK_EN;
+	mcr |= spdsel << RTL930X_SPEED_SHIFT;
+	if (!priv->ports[port].phy && phydev)
+		mcr &= ~RTL930X_MEDIA_SEL;
 
-		if (tx_pause)
-			mcr |= RTL930X_TX_PAUSE_EN;
-		if (rx_pause)
-			mcr |= RTL930X_RX_PAUSE_EN;
-		if (duplex == DUPLEX_FULL || priv->lagmembers & BIT_ULL(port))
-			mcr |= RTL930X_DUPLEX_MODE;
-		if (dsa_port_is_cpu(dp) || priv->ports[port].phy)
-			mcr |= RTL930X_FORCE_EN;
-	}
+	if (tx_pause)
+		mcr |= RTL930X_TX_PAUSE_EN;
+	if (rx_pause)
+		mcr |= RTL930X_RX_PAUSE_EN;
+	if (duplex == DUPLEX_FULL || priv->lagmembers & BIT_ULL(port))
+		mcr |= RTL930X_DUPLEX_MODE;
+
+	mcr |= RTL930X_FORCE_EN;
 
 	pr_debug("%s port %d, mode %x, speed %d, duplex %d, txpause %d, rxpause %d: set mcr=%08x\n",
 		 __func__, port, mode, speed, duplex, tx_pause, rx_pause, mcr);
 	sw_w32(mcr, priv->r->mac_force_mode_ctrl(port));
 
+	/* Keep force mode active while switching hardware link sources. */
+	if (!priv->ports[port].phy && priv->r->mac_link_state_source_set && phydev)
+		priv->r->mac_link_state_source_set(port,
+						  RTLDSA_MAC_LINK_STATE_SOURCE_PHY,
+						  interface);
+
+restart:
 	/* Restart TX/RX to port */
 	sw_w32_mask(0, 0x3, priv->r->mac_port_ctrl(port));
 }
