@@ -350,9 +350,9 @@ static void rtldsa_93xx_phylink_mac_config(struct phylink_config *config,
 	sw_w32(0, priv->r->mac_force_mode_ctrl(port));
 }
 
-static void rtldsa_phylink_mac_link_down(struct phylink_config *config,
-					 unsigned int mode,
-					 phy_interface_t interface)
+static void rtldsa_83xx_phylink_mac_link_down(struct phylink_config *config,
+					      unsigned int mode,
+					      phy_interface_t interface)
 {
 	struct dsa_port *dp = dsa_phylink_to_port(config);
 	struct rtl838x_switch_priv *priv = dp->ds->priv;
@@ -363,15 +363,26 @@ static void rtldsa_phylink_mac_link_down(struct phylink_config *config,
 	sw_w32_mask(0x3, 0, priv->r->mac_port_ctrl(port));
 
 	cfg = &priv->r->mac_force_mode;
-	if (priv->family_id == RTL9300_FAMILY_ID) {
-		/* Preserve force mode while forcing the link down. */
-		sw_w32_mask(cfg->link_up_mask, 0,
-			    priv->r->mac_force_mode_ctrl(port));
-	} else {
-		/* No longer force link */
-		sw_w32_mask(cfg->link_force_en_mask | cfg->link_up_mask, 0,
-			    priv->r->mac_force_mode_ctrl(port));
-	}
+	/* No longer force link */
+	sw_w32_mask(cfg->link_force_en_mask | cfg->link_up_mask, 0,
+		    priv->r->mac_force_mode_ctrl(port));
+}
+
+static void rtldsa_93xx_phylink_mac_link_down(struct phylink_config *config,
+					      unsigned int mode,
+					      phy_interface_t interface)
+{
+	struct dsa_port *dp = dsa_phylink_to_port(config);
+	struct rtl838x_switch_priv *priv = dp->ds->priv;
+	int port = dp->index;
+	const struct rtldsa_mac_force_mode_cfg *cfg = &priv->r->mac_force_mode;
+
+	/* Stop TX/RX to port */
+	sw_w32_mask(0x3, 0, priv->r->mac_port_ctrl(port));
+
+	/* Preserve force mode while forcing the link down. */
+	sw_w32_mask(cfg->link_up_mask, 0,
+		    priv->r->mac_force_mode_ctrl(port));
 }
 
 static void rtldsa_83xx_phylink_mac_link_up(struct phylink_config *config,
@@ -2676,7 +2687,7 @@ unlock:
 
 const struct phylink_mac_ops rtldsa_83xx_phylink_mac_ops = {
 	.mac_config		= rtldsa_83xx_phylink_mac_config,
-	.mac_link_down		= rtldsa_phylink_mac_link_down,
+	.mac_link_down		= rtldsa_83xx_phylink_mac_link_down,
 	.mac_link_up		= rtldsa_83xx_phylink_mac_link_up,
 };
 
@@ -2738,7 +2749,7 @@ const struct dsa_switch_ops rtldsa_83xx_switch_ops = {
 
 const struct phylink_mac_ops rtldsa_93xx_phylink_mac_ops = {
 	.mac_config		= rtldsa_93xx_phylink_mac_config,
-	.mac_link_down		= rtldsa_phylink_mac_link_down,
+	.mac_link_down		= rtldsa_93xx_phylink_mac_link_down,
 	.mac_link_up		= rtldsa_93xx_phylink_mac_link_up,
 };
 
