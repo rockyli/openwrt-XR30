@@ -64,7 +64,7 @@ TARGET_DEVICES += meraki_mx60
 define Device/netgear_wndap6x0
   FILESYSTEMS := squashfs
   DEVICE_VENDOR := NETGEAR
-  DEVICE_PACKAGES := kmod-eeprom-at24 swconfig
+  DEVICE_PACKAGES := kmod-eeprom-at24 kmod-switch-rtl8367b swconfig
   SUBPAGESIZE := 256
   PAGESIZE := 512
   BLOCKSIZE := 16k
