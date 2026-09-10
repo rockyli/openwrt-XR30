@@ -13,7 +13,7 @@
 
 / {
 	model = "Benton SN-R1";
-	compatible = "sn,r1", "bt,snr1", "mediatek,mt7981";
+	compatible = "benton,sn-r1", "mediatek,mt7981";
 
 	aliases {
 		serial0 = &uart0;
@@ -30,7 +30,7 @@
 
 	memory@40000000 {
 		device_type = "memory";
-		reg = <0 0x40000000 0 0x20000000>;
+		reg = <0 0x40000000 0 0x40000000>;
 	};
 
 	gpio-keys {
