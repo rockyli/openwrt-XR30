@@ -1,8 +1,10 @@
 #!/bin/sh
 
-PSU_TEMP=$(cut -c1-2 /sys/class/hwmon/hwmon0/temp1_input)
+LM63_HWMON=$(grep -Fx -l lm63 /sys/class/hwmon/hwmon*/name) || exit 0
+LM63_HWMON=${LM63_HWMON%/name}
 
-FAN_CTRL='/sys/class/hwmon/hwmon0/pwm1'
+PSU_TEMP=$(cat "$LM63_HWMON/temp1_input")
+FAN_CTRL="$LM63_HWMON/pwm1"
 
 PSU_THRESH=51000
 
