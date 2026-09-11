@@ -334,7 +334,7 @@ ifeq ($(DUMP),1)
       FEATURES += arm_v6
     endif
     ifneq ($(CONFIG_CPU_V6K),)
-      FEATURES += arm_v6
+      FEATURES += arm_v6k
     endif
     ifneq ($(CONFIG_CPU_V7),)
       FEATURES += arm_v7
