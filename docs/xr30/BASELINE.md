@@ -31,11 +31,26 @@ expanded and minimal build configurations, revision records, package manifests,
 FIT structure reports, package outputs and diagnostic logs. Artifacts expire
 after 14 days; download them to retain the baseline. No GitHub Release is created.
 
-An unsuccessful run can also upload diagnostic artifacts. The existence of an
-artifact is not evidence of a successful build: check the overall job result.
+An unsuccessful run can also upload diagnostic artifacts. Images are copied
+before validation, so a later validation failure does not discard them.
+`VALIDATION_PENDING.txt` means the images have not completed validation and
+must not be treated as approved firmware. A completed collection instead has
+`VALIDATION_OK.txt` and `SHA256SUMS`. The existence of an artifact is not
+evidence of a successful build: check the overall job result.
 The workflow validates selected-device configuration and image structure, but
 hardware testing is still a separate step. Do not flash bootloader or GPT
 artifacts when testing an ordinary system upgrade.
+
+The validator accepts either `openwrt-mediatek-filogic-cmcc_rax3000m-...`
+or `openwrt-25.12.5-mediatek-filogic-cmcc_rax3000m-...`, requiring exactly one
+nonempty file for each image type. OpenWrt's version metadata does not enable
+versioned filenames automatically. No source or package configuration change
+is required to handle this naming difference.
+
+After a workflow fix, start a new **Run workflow** on the current branch.
+Re-running an old failed job uses its original workflow revision. This workflow
+does not preserve the full compilation workspace, so a new run rebuilds from
+source.
 
 ## Packages and upgrades
 

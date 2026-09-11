@@ -123,19 +123,49 @@ jobs:
           if [ "$jobs" -gt 4 ]; then jobs=4; fi
           make -j"$jobs" V=s 2>&1 | tee "$OUTPUT_DIR/build.log"
 
+      - name: Preserve images before validation
+        shell: bash
+        working-directory: ${{ env.BUILD_DIR }}
+        run: |
+          set -euo pipefail
+          target_dir=bin/targets/mediatek/filogic
+          printf 'Image validation is incomplete. These files are for diagnosis, not approved for flashing.\n' > "$OUTPUT_DIR/VALIDATION_PENDING.txt"
+          shopt -s nullglob
+          for file in "$target_dir"/openwrt*-mediatek-filogic-cmcc_rax3000m-*.itb \
+                      "$target_dir"/openwrt*-mediatek-filogic-cmcc_rax3000m.manifest \
+                      "$target_dir"/profiles.json; do
+            [ -f "$file" ] || continue
+            cp "$file" "$OUTPUT_DIR/"
+          done
+          ls -lh "$target_dir" > "$OUTPUT_DIR/target-files.txt"
+
       - name: Validate and collect artifacts
         shell: bash
         working-directory: ${{ env.BUILD_DIR }}
         run: |
           set -euo pipefail
           target_dir=bin/targets/mediatek/filogic
-          prefix=openwrt-25.12.5-mediatek-filogic-cmcc_rax3000m
+          # VERSION_NUMBER does not imply CONFIG_VERSION_FILENAMES=y.
+          # Accept exactly one known filename for each image type.
+          prefixes=(openwrt-mediatek-filogic-cmcc_rax3000m openwrt-25.12.5-mediatek-filogic-cmcc_rax3000m)
           for suffix in squashfs-sysupgrade.itb initramfs-recovery.itb; do
-            image="$target_dir/$prefix-$suffix"
-            test -s "$image"
+            candidates=()
+            for prefix in "${prefixes[@]}"; do
+              candidate="$target_dir/$prefix-$suffix"
+              if [ -s "$candidate" ]; then candidates+=("$candidate"); fi
+            done
+            if [ "${#candidates[@]}" -ne 1 ]; then
+              echo "::error::Expected exactly one nonempty RAX3000M $suffix image; found ${#candidates[@]}."
+              ls -lh "$target_dir"
+              exit 1
+            fi
+            image=${candidates[0]}
+            printf 'Validating %s\n' "$image"
             staging_dir/host/bin/mkimage -l "$image" > "$OUTPUT_DIR/$suffix.structure.txt"
-            grep -q 'mt7981b-cmcc-rax3000m-emmc' "$OUTPUT_DIR/$suffix.structure.txt"
-            cp "$image" "$OUTPUT_DIR/"
+            if ! grep -q 'mt7981b-cmcc-rax3000m-emmc' "$OUTPUT_DIR/$suffix.structure.txt"; then
+              echo "::error::RAX3000M eMMC overlay is missing from $image."
+              exit 1
+            fi
           done
           for file in "$target_dir"/*.manifest "$target_dir"/profiles.json; do
             test -f "$file"
@@ -158,6 +188,8 @@ jobs:
           EOF
           cd "$OUTPUT_DIR"
           sha256sum ./*.itb matching-packages.tar.gz > SHA256SUMS
+          printf 'Both FIT images passed structure inspection. Hardware testing remains required.\n' > VALIDATION_OK.txt
+          rm VALIDATION_PENDING.txt
           printf '## RAX3000M baseline build completed\n\n' >> "$GITHUB_STEP_SUMMARY"
           printf 'Source: `%s`\n\nDownload the artifact below; hardware testing is still required.\n' "$BASE_COMMIT" >> "$GITHUB_STEP_SUMMARY"
 
