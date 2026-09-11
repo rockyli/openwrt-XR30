@@ -369,6 +369,12 @@ platform_do_upgrade() {
 		CI_UBIPART="$(cmdline_get_var ubi.mtd)"
 		nand_do_upgrade "$1"
 		;;
+	benton,sn-r1)
+		CI_DATAPART="rootfs_data"
+		CI_KERNPART="kernel_2nd"
+		CI_ROOTPART="rootfs_2nd"
+		emmc_do_upgrade "$1"
+		;;
 	nradio,c8-668gl)
 		CI_DATAPART="rootfs_data"
 		CI_KERNPART="kernel_2nd"
