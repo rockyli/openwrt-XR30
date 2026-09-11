@@ -1,0 +1,64 @@
+name: XR30 - Sync upstream branches
+
+on:
+  schedule:
+    # Daily at 03:17 China Standard Time (UTC+8).
+    - cron: '17 19 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Check synchronization without updating branches
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: xr30-sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.repository == 'rockyli/openwrt-XR30' && github.ref == 'refs/heads/xr30-25.12'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Fetch and fast-forward official tracking branches
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+        run: |
+          set -euo pipefail
+          # Never check out or execute code fetched from upstream.
+          task_dir=$(mktemp -d "$RUNNER_TEMP/xr30-sync.XXXXXX")
+          trap 'rm -rf "$task_dir"' EXIT
+          git init --bare "$task_dir/repository.git"
+          cd "$task_dir/repository.git"
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git remote add upstream https://github.com/openwrt/openwrt.git
+          gh auth setup-git --hostname github.com
+          branches=(main openwrt-25.12)
+          refspecs=()
+          printf '## Official branch synchronization\n\n' >> "$GITHUB_STEP_SUMMARY"
+          for branch in "${branches[@]}"; do
+            git fetch --no-tags origin "refs/heads/$branch:refs/remotes/origin/$branch"
+            git fetch --no-tags upstream "refs/heads/$branch:refs/remotes/upstream/$branch"
+            old=$(git rev-parse "refs/remotes/origin/$branch")
+            new=$(git rev-parse "refs/remotes/upstream/$branch")
+            if ! git merge-base --is-ancestor "$old" "$new"; then
+              echo "::error::Tracking branch $branch has diverged. No branches were pushed."
+              exit 1
+            fi
+            printf -- '- `%s`: `%s` -> `%s`\n' "$branch" "$old" "$new" >> "$GITHUB_STEP_SUMMARY"
+            refspecs+=("$new:refs/heads/$branch")
+          done
+          if [ "$DRY_RUN" = true ]; then
+            git push --dry-run --atomic origin "${refspecs[@]}"
+            printf '\nDry run: no branches changed.\n' >> "$GITHUB_STEP_SUMMARY"
+          else
+            # Atomic, non-forced push: either both updates succeed or neither does.
+            git push --atomic origin "${refspecs[@]}"
+            printf '\nTracking branches synchronized. XR30 branch and tags unchanged.\n' >> "$GITHUB_STEP_SUMMARY"
+          fi

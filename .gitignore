@@ -35,3 +35,26 @@ git-src
 .cproject
 .ccache
 .vscode*
+
+# Local XR30 device material: never publish.
+/XR30-stock-backup/
+/backups/
+/private/
+/secrets/
+**/before-openwrt-*/
+mmcblk*.bin
+boot0.bin
+boot1.bin
+emmc-head-*.bin
+emmc-tail-*.bin
+XR30-stock.dtb
+factory.bin
+eeprom.bin
+.env
+.env.*
+!.env.example
+id_rsa
+id_ed25519
+*.key
+*.p12
+*.pfx
