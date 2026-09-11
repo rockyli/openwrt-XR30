@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Navas Abubacker <navas@outlook.com>
+Date: Sat, 5 Sep 2026 11:52:06 +0530
+Subject: [PATCH] staging: fbtft: add NV3007 driver Kconfig/Makefile entries
+
+Add Kconfig and Makefile entries for the NewVision NV3007 SPI TFT
+display driver, wiring fb_nv3007.o into the generic fbtft staging
+framework.
+
+Signed-off-by: Navas Abubacker <navas@outlook.com>
+---
+ drivers/staging/fbtft/Kconfig  | 5 +++++
+ drivers/staging/fbtft/Makefile | 2 ++
+ 2 files changed, 7 insertions(+)
+
+--- a/drivers/staging/fbtft/Kconfig
++++ b/drivers/staging/fbtft/Kconfig
+@@ -168,6 +168,11 @@
+ config FB_TFT_UPD161704
+ 	tristate "FB driver for the uPD161704 LCD Controller"
+ 	help
+ 	  Generic Framebuffer support for uPD161704
++
++config FB_TFT_NV3007
++	tristate "FB driver for the NewVision NV3007 LCD Controller"
++	help
++	  Generic framebuffer support for NewVision NV3007 SPI displays.
+ 
+ endif
+--- a/drivers/staging/fbtft/Makefile
++++ b/drivers/staging/fbtft/Makefile
+@@ -36,3 +36,5 @@
+ obj-$(CONFIG_FB_TFT_UC1611)      += fb_uc1611.o
+ obj-$(CONFIG_FB_TFT_UC1701)      += fb_uc1701.o
+ obj-$(CONFIG_FB_TFT_UPD161704)   += fb_upd161704.o
++
++obj-$(CONFIG_FB_TFT_NV3007)      += fb_nv3007.o
+--
+2.43.0
