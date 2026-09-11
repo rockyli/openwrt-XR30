@@ -140,6 +140,24 @@ define Device/horaco_zx-swtgw2c8f
 endef
 TARGET_DEVICES += horaco_zx-swtgw2c8f
 
+define Device/keeplink_kp-9000-8xm
+  SOC := rtl9303
+  UIMAGE_MAGIC := 0x93000000
+  DEVICE_VENDOR := KeepLiNK
+  DEVICE_MODEL := KP-9000-8XM
+  # The initial bootloader (3.6.7.55090 Jan 11 2025 - 04:18:59) had incorrect RUNTIME sizes: RUNTIME1: 0xe80000 / RUNTIME2: 0xd80000
+  # Upon inquiry, an updated bootloader (3.6.7.55090 Mar 12 2025 - 08:50:56) was provided, correcting both RUNTIME1 and RUNTIME2 to 0xe00000
+  # The stock firmware uses the corrected sizes as well, so an image has to fit into the 0xe00000 "firmware" partition
+  IMAGE_SIZE := 14336k
+  KERNEL_INITRAMFS := \
+	kernel-bin | \
+	append-dtb | \
+	libdeflate-gzip | \
+	uImage gzip | \
+	check-size
+endef
+TARGET_DEVICES += keeplink_kp-9000-8xm
+
 define Device/nicgiga_s100-0800s-m
   SOC := rtl9303
   UIMAGE_MAGIC := 0x93030000
