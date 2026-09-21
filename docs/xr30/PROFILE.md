@@ -27,6 +27,13 @@ exact triggering commit, verifies pinned feeds, and preserves revision records,
 expanded configuration, package outputs and checksums. The official baseline
 workflow continues to build its fixed upstream source independently.
 
+Builds can also be requested over SSH by pushing a new lightweight tag with
+the prefix `xr30-ci-` at the exact development commit to test. For example,
+create `xr30-ci-YYYYMMDD-NN` at the selected commit and push that tag explicitly.
+Use a new tag for each request; never move a previous build tag. Ordinary branch
+pushes do not trigger this XR30 workflow. These CI tags are not release tags and
+do not match the repository's `v*` release workflow.
+
 CI checks both FIT files for the runtime model, compatibility identity and
 bootloader-selected eMMC configuration. A successful build is not hardware
 validation. Treat outputs as candidates until the physical tests below pass.

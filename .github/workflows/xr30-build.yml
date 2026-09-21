@@ -2,6 +2,9 @@ name: XR30 - Build development firmware
 
 on:
   workflow_dispatch:
+  push:
+    tags:
+      - 'xr30-ci-*'
 
 permissions:
   contents: read
