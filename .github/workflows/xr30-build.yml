@@ -87,14 +87,28 @@ jobs:
           cp config/xr30.config .config
           printf 'CONFIG_VERSION_CODE="xr30-%s"\n' "${SOURCE_COMMIT:0:12}" >> .config
           cp .config "$OUTPUT_DIR/config.seed"
-          make defconfig
-          grep -qx 'CONFIG_TARGET_mediatek_filogic_DEVICE_cmcc_xr30=y' .config
-          grep -qx 'CONFIG_PACKAGE_luci=y' .config
-          grep -qx 'CONFIG_TARGET_ROOTFS_PARTSIZE=448' .config
-          grep -qx 'CONFIG_VERSION_FILENAMES=y' .config
-          test "$(grep -c '^CONFIG_TARGET_.*_DEVICE_.*=y$' .config)" -eq 1
+          make defconfig 2>&1 | tee "$OUTPUT_DIR/defconfig.log"
+          # Preserve the generated configuration even when validation fails.
           cp .config "$OUTPUT_DIR/config.full"
           ./scripts/diffconfig.sh > "$OUTPUT_DIR/config.diff"
+          for expected in \
+            'CONFIG_TARGET_mediatek_filogic_DEVICE_cmcc_xr30=y' \
+            'CONFIG_PACKAGE_luci=y' \
+            'CONFIG_TARGET_ROOTFS_PARTSIZE=448' \
+            'CONFIG_IMAGEOPT=y' \
+            'CONFIG_VERSIONOPT=y' \
+            'CONFIG_VERSION_NUMBER="25.12.5-XR30"' \
+            'CONFIG_VERSION_FILENAMES=y'; do
+            if ! grep -Fqx "$expected" .config; then
+              echo "::error::Generated configuration is missing: $expected"
+              exit 1
+            fi
+          done
+          device_count=$(grep -c '^CONFIG_TARGET_.*_DEVICE_.*=y$' .config || true)
+          if [ "$device_count" -ne 1 ]; then
+            echo "::error::Expected one selected device, found $device_count"
+            exit 1
+          fi
           git diff --exit-code
           test ! -d files
 
@@ -136,8 +150,8 @@ jobs:
         run: |
           set -euo pipefail
           target_dir=bin/targets/mediatek/filogic
-          # The XR30 seed explicitly enables versioned filenames.
-          prefixes=(openwrt-25.12.5-XR30-mediatek-filogic-cmcc_xr30)
+          # include/image.mk normalizes the version to lowercase in filenames.
+          prefixes=(openwrt-25.12.5-xr30-mediatek-filogic-cmcc_xr30)
           for suffix in squashfs-sysupgrade.itb initramfs-recovery.itb; do
             candidates=()
             for prefix in "${prefixes[@]}"; do

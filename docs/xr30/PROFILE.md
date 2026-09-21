@@ -22,6 +22,9 @@ profile; it uses the already installed bootloader and partition table.
 
 The seed is `config/xr30.config`: Filogic, XR30, LuCI, squashfs, initramfs,
 448 MiB rootfs partition setting, and a `25.12.5-XR30` version suffix.
+`CONFIG_IMAGEOPT=y` is required for Kconfig to retain the custom version
+options. The runtime version uses `XR30`, while OpenWrt normalizes the version
+portion of image filenames to lowercase (`25.12.5-xr30`).
 The separate manual `XR30 - Build development firmware` workflow builds its
 exact triggering commit, verifies pinned feeds, and preserves revision records,
 expanded configuration, package outputs and checksums. The official baseline
