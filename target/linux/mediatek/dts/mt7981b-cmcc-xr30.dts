@@ -5,4 +5,20 @@
 /* Personal firmware profile; retain the verified RAX3000M runtime ABI. */
 / {
 	model = "XR30";
+
+	aliases {
+		led-running = &white_led;
+		led-upgrade = &white_led;
+	};
+
+	gpio-leds {
+		/delete-node/ led-0;
+		/delete-node/ led-1;
+
+		white_led: led-white {
+			function = LED_FUNCTION_STATUS;
+			color = <LED_COLOR_ID_WHITE>;
+			gpios = <&pio 34 GPIO_ACTIVE_LOW>;
+		};
+	};
 };
