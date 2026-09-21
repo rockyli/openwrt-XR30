@@ -943,6 +943,12 @@ define Device/cmcc_xr30
   DEVICE_ALT0_VENDOR :=
   DEVICE_ALT0_MODEL :=
   DEVICE_DTS := mt7981b-cmcc-xr30
+  # The inherited := recipes captured RAX3000M's DTS before the override.
+  KERNEL_INITRAMFS := kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
+  IMAGE/sysupgrade.itb := append-kernel | \
+	fit gzip $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb external-static-with-rootfs | \
+	pad-rootfs | append-metadata
   SUPPORTED_DEVICES := cmcc,rax3000m
   ARTIFACTS :=
 endef

@@ -52,8 +52,9 @@ def check(fit):
             ["fdtoverlay", "-i", str(base), "-o", str(merged), str(dtbo)], check=True
         )
         for tree in (base, merged):
-            if prop(tree, "/", "model") != "XR30":
-                raise ValueError("Runtime model must be exactly XR30")
+            model = prop(tree, "/", "model")
+            if model != "XR30":
+                raise ValueError(f"{fit.name}: {tree.name} model is {model!r}; expected 'XR30'")
             if prop(tree, "/", "compatible").split() != ["cmcc,rax3000m", "mediatek,mt7981"]:
                 raise ValueError("RAX3000M runtime compatibility changed")
         prop(merged, "/chosen", "rootdisk", "x")

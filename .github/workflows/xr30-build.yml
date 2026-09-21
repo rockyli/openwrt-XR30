@@ -56,6 +56,11 @@ jobs:
           printf '%s\n' "$GITHUB_SHA" > "$OUTPUT_DIR/workflow-commit.txt"
           printf 'SOURCE_DATE_EPOCH=%s\n' "$(git -C "$BUILD_DIR" log -1 --format=%ct)" >> "$GITHUB_ENV"
 
+      - name: Check XR30 image recipes
+        shell: bash
+        working-directory: ${{ env.BUILD_DIR }}
+        run: python3 .github/workflows/scripts/test-xr30-image-recipes.py
+
       - name: Install pinned feeds
         shell: bash
         working-directory: ${{ env.BUILD_DIR }}
