@@ -20,7 +20,8 @@ profile; it uses the already installed bootloader and partition table.
 
 ## Build
 
-The seed is `config/xr30.config`: Filogic, XR30, LuCI, squashfs, initramfs,
+The seed combines the pinned official `config/xr30-official/config.buildinfo`
+with `config/xr30.config`: Filogic, XR30, LuCI, squashfs, initramfs,
 448 MiB rootfs partition setting, and a `25.12.5-XR30` version suffix.
 `CONFIG_IMAGEOPT=y` is required for Kconfig to retain the custom version
 options. The runtime version uses `XR30`, while OpenWrt normalizes the version
@@ -60,34 +61,79 @@ validation. Treat outputs as candidates until the physical tests below pass.
 The 448 MiB setting is specific to the recorded production partition layout;
 the unchanged compatibility string cannot distinguish all RAX3000M variants.
 
-## Kernel modules for separately installed applications
+## Official kernel module compatibility
 
-The base image includes `kmod-tun`, `kmod-inet-diag` and `kmod-nft-tproxy`,
-including their dependencies. These provide TUN/TAP, socket diagnostics and
-firewall4 transparent-proxy support. Tailscale, OpenClash and their LuCI apps
-remain separately installed; no VPN enrollment or proxy policy is configured
-by the firmware. CI checks the expanded configuration and final image manifest
-for the required modules and verifies that those applications are absent.
+The build now targets the official 25.12.5 Filogic kernel module repository.
+The [release lock](../../config/xr30-official/lock.json) records the official
+source commit, kernel version/release/ABI, architecture and build timestamp.
+It also records the published SHA256 checksums of the official build metadata;
+config, feeds and version snapshots are kept alongside it. The official
+[config.buildinfo](https://downloads.openwrt.org/releases/25.12.5/targets/mediatek/filogic/config.buildinfo)
+and
+[profiles.json](https://downloads.openwrt.org/releases/25.12.5/targets/mediatek/filogic/profiles.json)
+are the sources of these settings. Upgrading the release requires reviewing and
+updating the lock and snapshots together, not just changing the repository URL.
 
-The previous candidate (`59746ec748a5`) booted on the DDR4/eMMC device and
-reported model `XR30`. Installing Tailscale then failed because `kmod-tun`
-was unavailable. Its kernel package ABI differs from the official 25.12.5
-Filogic module feed, and its repositories do not include a matching kmod feed.
-Adding the official kmod feed or forcing package installation is not a fix.
+Generate the configuration with:
 
-Upgrade to a candidate built with the required modules before retrying app
-installation. Changing the kernel configuration changes its package ABI;
-do not install modules from a newer candidate onto an older candidate. The
-`matching-packages.tar.gz` artifact contains only packages selected for that
-build, not every possible kernel module. Arbitrary additional kernel modules
-still require a matching build; this change does not establish a public XR30
-module repository or general compatibility with official kernel packages.
+```sh
+python3 .github/workflows/scripts/xr30-official-abi.py seed
+make defconfig
+python3 .github/workflows/scripts/xr30-official-abi.py config
+```
 
-After upgrading, verify the installed modules with `apk info -e kmod-tun
-kmod-inet-diag kmod-nft-tproxy`, then run `apk update` and
-`apk add --simulate tailscale luci-app-tailscale-community` before installation.
-OpenClash also needs separately installed userspace dependencies, including
-`dnsmasq-full`; the image continues to use standard dnsmasq by default.
+The generator retains official build/kernel options, including `ALL_KMODS`,
+`ALL_NONSHARED`, `BUILDBOT`, per-device rootfs and disabled `KERNEL_KALLSYMS`.
+It replaces the official device list and installed userspace selections with
+the XR30 seed. Only the XR30 image is produced. SDK, ImageBuilder and toolchain
+archive outputs are disabled; the underlying tools are built from the pinned
+source. The official build timestamp is retained. XR30 model, LED definitions,
+LAN defaults and version display remain customized.
+
+All available kernel module packages are selected for compilation, but optional
+modules such as `kmod-tun`, `kmod-inet-diag` and `kmod-nft-tproxy` are not installed
+in the firmware. Tailscale, OpenClash and their LuCI applications also remain
+separately installed. Standard dnsmasq is retained; OpenClash still requires
+its userspace dependencies, including dnsmasq-full, when installed later.
+Attended Sysupgrade is not preinstalled: the public service does not know the
+custom XR30 profile, regardless of kernel ABI compatibility.
+
+CI checks source files affecting the kernel/toolchain against the locked
+release, validates the expanded configuration, then configures the real kernel
+and stops before image generation if its ABI differs from the official value.
+It preserves the actual Linux config and mismatch report for diagnosis. No
+vermagic override or forced dependency installation is used.
+
+After building, CI checks `profiles.json`, the kernel package installed in the
+actual XR30 rootfs, and its generated official kmod feed URL. Using a separate
+copy of that rootfs and the installed signing keys, it updates official APK
+indexes and simulates installing Tailscale, its LuCI application and the three
+optional modules. The firmware itself remains unchanged by that check. Image
+validation is marked successful only after all checks pass. Actual module
+loading and application behavior still need device testing.
+
+Candidate `59746ec748a5` booted and reported XR30, but its minimal kernel config
+had a different ABI and no matching module feed. Merely adding the official
+feed to that older firmware cannot fix it. Candidate `209520e8ff3f` takes the
+interim approach of embedding selected modules; it does not implement official
+ABI alignment. Upgrade to a successfully validated build from this new route
+before using the official module feed. Do not mix modules across incompatible
+candidates. Keep the matching packages artifact with each firmware as a record;
+locally built APKs have separate signing trust from the official repository.
+
+On the device, after upgrading with settings preserved:
+
+```sh
+apk update
+apk add --simulate kmod-tun tailscale luci-app-tailscale-community
+apk add kmod-tun tailscale luci-app-tailscale-community
+modprobe tun
+test -c /dev/net/tun && echo 'TUN device is available'
+```
+
+A successful CI simulation is not a hardware test. Confirm module loading,
+Tailscale startup and preserved configuration on the intended device before
+considering this compatibility work validated.
 
 ## Default LAN and DHCP
 
