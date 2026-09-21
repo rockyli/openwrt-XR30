@@ -60,6 +60,35 @@ validation. Treat outputs as candidates until the physical tests below pass.
 The 448 MiB setting is specific to the recorded production partition layout;
 the unchanged compatibility string cannot distinguish all RAX3000M variants.
 
+## Kernel modules for separately installed applications
+
+The base image includes `kmod-tun`, `kmod-inet-diag` and `kmod-nft-tproxy`,
+including their dependencies. These provide TUN/TAP, socket diagnostics and
+firewall4 transparent-proxy support. Tailscale, OpenClash and their LuCI apps
+remain separately installed; no VPN enrollment or proxy policy is configured
+by the firmware. CI checks the expanded configuration and final image manifest
+for the required modules and verifies that those applications are absent.
+
+The previous candidate (`59746ec748a5`) booted on the DDR4/eMMC device and
+reported model `XR30`. Installing Tailscale then failed because `kmod-tun`
+was unavailable. Its kernel package ABI differs from the official 25.12.5
+Filogic module feed, and its repositories do not include a matching kmod feed.
+Adding the official kmod feed or forcing package installation is not a fix.
+
+Upgrade to a candidate built with the required modules before retrying app
+installation. Changing the kernel configuration changes its package ABI;
+do not install modules from a newer candidate onto an older candidate. The
+`matching-packages.tar.gz` artifact contains only packages selected for that
+build, not every possible kernel module. Arbitrary additional kernel modules
+still require a matching build; this change does not establish a public XR30
+module repository or general compatibility with official kernel packages.
+
+After upgrading, verify the installed modules with `apk info -e kmod-tun
+kmod-inet-diag kmod-nft-tproxy`, then run `apk update` and
+`apk add --simulate tailscale luci-app-tailscale-community` before installation.
+OpenClash also needs separately installed userspace dependencies, including
+`dnsmasq-full`; the image continues to use standard dnsmasq by default.
+
 ## Default LAN and DHCP
 
 With a fresh configuration, LAN uses `192.168.10.1/24` (network
@@ -101,9 +130,12 @@ definition is unchanged. It is not presented as a working WPS button.
 
 Before this change, the user reports normal WAN/LAN and dual-band Wi-Fi on the
 official RAX3000M image. LED electrical behavior and RESET events are confirmed
-as described above. Boot/status indication in the updated XR30 image, actual
+as described above. Candidate `59746ec748a5` has now booted on the DDR4/eMMC
+device and reported model `XR30` with board compatibility `cmcc,rax3000m`.
+Boot/status indication in the updated XR30 image, actual
 factory reset, and Mesh behavior remain unverified. These results do not
-establish that a newly built XR30 image works.
+establish that subsequent XR30 builds work or that application installation
+has been validated after the kernel module change.
 
 For each candidate, check the checksum and run `sysupgrade -T` on the intended
 device before considering a normal system upgrade. Confirm the target device's
