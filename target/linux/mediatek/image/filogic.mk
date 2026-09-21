@@ -935,6 +935,19 @@ define Device/cmcc_rax3000m
 endef
 TARGET_DEVICES += cmcc_rax3000m
 
+# Personal XR30 profile using the existing RAX3000M boot/runtime ABI.
+# Keep both FIT overlay names for compatibility with the inherited profile.
+define Device/cmcc_xr30
+  $(Device/cmcc_rax3000m)
+  DEVICE_MODEL := XR30
+  DEVICE_ALT0_VENDOR :=
+  DEVICE_ALT0_MODEL :=
+  DEVICE_DTS := mt7981b-cmcc-xr30
+  SUPPORTED_DEVICES := cmcc,rax3000m
+  ARTIFACTS :=
+endef
+TARGET_DEVICES += cmcc_xr30
+
 define Device/comfast_cf-e393ax
   DEVICE_VENDOR := COMFAST
   DEVICE_MODEL := CF-E393AX

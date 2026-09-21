@@ -1,0 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+
+#include "mt7981b-cmcc-rax3000m.dts"
+
+/* Personal firmware profile; retain the verified RAX3000M runtime ABI. */
+/ {
+	model = "XR30";
+};
