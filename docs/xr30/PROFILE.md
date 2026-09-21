@@ -37,11 +37,39 @@ Use a new tag for each request; never move a previous build tag. Ordinary branch
 pushes do not trigger this XR30 workflow. These CI tags are not release tags and
 do not match the repository's `v*` release workflow.
 
+To cancel a specific XR30 development build over SSH, push a new lightweight
+tag `xr30-cancel-RUN_ID` at a commit containing `xr30-cancel.yml`, substituting
+the numeric Actions run ID. The control job checks the repository and workflow
+before requesting cancellation. It uses an ephemeral GitHub token with Actions
+write permission only in that job; the firmware build retains read-only access.
+Cancellation tags do not trigger firmware builds or releases.
+
 CI checks both FIT files for the runtime model, compatibility identity and
 bootloader-selected eMMC configuration. A successful build is not hardware
 validation. Treat outputs as candidates until the physical tests below pass.
 The 448 MiB setting is specific to the recorded production partition layout;
 the unchanged compatibility string cannot distinguish all RAX3000M variants.
+
+## Default LAN and DHCP
+
+With a fresh configuration, LAN uses `192.168.10.1/24` (network
+`192.168.10.0/24`, netmask `255.255.255.0`). Connect a computer configured to
+obtain its address and DNS automatically to a LAN port; after normal boot it
+should receive an address from `192.168.10.100` through `192.168.10.249`, with
+a 12-hour lease. The router provides the default gateway and DNS service at
+`192.168.10.1`. The WAN port does not serve DHCP.
+
+The seed explicitly includes dnsmasq and uses OpenWrt's built-in
+`TARGET_DEFAULT_LAN_IP_FROM_PREINIT` mechanism to generate the LAN address.
+Preinit/failsafe therefore also uses `192.168.10.1`; automatic DHCP access is
+the normal-boot behavior, not a failsafe guarantee. Standard dnsmasq LAN pool
+settings remain unchanged. A DHCP lease does not itself guarantee Internet
+access; WAN connectivity must be configured separately.
+
+An upgrade that preserves settings retains existing LAN and DHCP settings.
+These defaults take effect on a fresh installation or when configuration is
+reset. Builds already running use their original source commit and do not
+incorporate this change.
 
 ## Validation status and remaining work
 
