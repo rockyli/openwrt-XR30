@@ -2,7 +2,10 @@
 
 This public repository starts from official OpenWrt. The initial development
 branch is based on `v25.12.5` (`f0a60eee2fe051741c643ea6118718aae1ef17fb`).
-It does not yet add an XR30 build profile or produce XR30 release images.
+The initial [XR30 personal profile](PROFILE.md) adds an XR30 build option and
+runtime model while retaining RAX3000M compatibility. It is not yet an
+independent upstream device port and has not produced hardware-tested XR30
+release images.
 
 ## Branches
 
@@ -49,8 +52,9 @@ ancestry when merging upstream synchronization PRs; do not squash those merges.
 Build and inspect the candidate; publish an immutable XR30 release tag only
 after hardware testing. Do not merge official `main` into this stable branch.
 
-Pin and record feed commits as well as the OpenWrt commit. Build workflows,
-artifact review and a device profile will be added separately.
+Pin and record feed commits as well as the OpenWrt commit. The fixed-source
+[baseline build](BASELINE.md) and the manual [XR30 development build](PROFILE.md)
+serve different purposes. Artifact review and hardware testing remain required.
 
 ## Public content
 
