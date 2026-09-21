@@ -100,6 +100,9 @@ jobs:
             'CONFIG_TARGET_mediatek_filogic_DEVICE_cmcc_xr30=y' \
             'CONFIG_PACKAGE_luci=y' \
             'CONFIG_PACKAGE_dnsmasq=y' \
+            'CONFIG_PACKAGE_kmod-tun=y' \
+            'CONFIG_PACKAGE_kmod-inet-diag=y' \
+            'CONFIG_PACKAGE_kmod-nft-tproxy=y' \
             'CONFIG_TARGET_ROOTFS_PARTSIZE=448' \
             'CONFIG_IMAGEOPT=y' \
             'CONFIG_PREINITOPT=y' \
@@ -199,6 +202,18 @@ jobs:
             test -f "$file"
             cp "$file" "$OUTPUT_DIR/"
           done
+          manifest="$target_dir/openwrt-25.12.5-xr30-mediatek-filogic-cmcc_xr30.manifest"
+          test -s "$manifest"
+          for package in kmod-tun kmod-inet-diag kmod-nft-tproxy kmod-nf-tproxy; do
+            if ! grep -q "^${package} - " "$manifest"; then
+              echo "::error::Firmware manifest is missing required kernel package: $package"
+              exit 1
+            fi
+          done
+          if grep -Eq '^(tailscale|luci-app-tailscale-community|luci-app-openclash) - ' "$manifest"; then
+            echo '::error::Optional VPN/proxy applications must remain separately installed.'
+            exit 1
+          fi
           # Preserve matching package outputs without uploading signing keys.
           # Do not use an official kmod feed unless ABI compatibility is verified.
           tar -czf "$OUTPUT_DIR/matching-packages.tar.gz" \
@@ -209,6 +224,8 @@ jobs:
           Existing RAX3000M FIT overlay names and partition handling are retained.
           This build uses the exact triggering repository commit, not the fixed baseline.
           LuCI and a 448 MiB production partition setting are selected.
+          TUN, INET diagnostics and nftables TPROXY kernel packages are included with dependencies.
+          Tailscale, OpenClash and their LuCI apps are installed separately after flashing.
           Fresh defaults: LAN/failsafe 192.168.10.1/24; LAN DHCP pool .100-.249, 12h leases.
           Preserving settings during sysupgrade preserves the old LAN/DHCP configuration.
           Build and FIT checks do not establish hardware compatibility.
