@@ -1,0 +1,65 @@
+name: XR30 - Cancel selected development build
+
+on:
+  push:
+    tags:
+      - 'xr30-cancel-*'
+
+permissions: {}
+
+jobs:
+  cancel:
+    if: github.repository == 'rockyli/openwrt-XR30'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    permissions:
+      actions: write
+    steps:
+      - name: Validate and cancel the selected XR30 build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import urllib.error
+          import urllib.request
+
+          match = re.fullmatch(r'xr30-cancel-([1-9][0-9]*)', os.environ['GITHUB_REF_NAME'])
+          if not match:
+              raise SystemExit('Expected tag xr30-cancel-RUN_ID')
+          run_id = match.group(1)
+          repository = os.environ['GITHUB_REPOSITORY']
+          url = f"{os.environ['GITHUB_API_URL']}/repos/{repository}/actions/runs/{run_id}"
+          headers = {
+              'Accept': 'application/vnd.github+json',
+              'Authorization': 'Bearer ' + os.environ['GH_TOKEN'],
+              'X-GitHub-Api-Version': '2022-11-28',
+          }
+
+          def get_run():
+              with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=30) as response:
+                  return json.load(response)
+
+          run = get_run()
+          if (run['repository']['full_name'] != repository or
+                  run['path'].split('@', 1)[0] != '.github/workflows/xr30-build.yml'):
+              raise SystemExit('Refusing to cancel a different repository or workflow')
+          print(f"Selected XR30 run {run_id}: {run['status']} ({run['head_sha']})", flush=True)
+          if run['status'] == 'completed':
+              print('Run already completed; no cancellation needed.')
+          else:
+              request = urllib.request.Request(url + '/cancel', headers=headers, method='POST')
+              try:
+                  with urllib.request.urlopen(request, timeout=30) as response:
+                      if response.status != 202:
+                          raise SystemExit(f'Unexpected cancellation response: {response.status}')
+                  print(f'Cancellation accepted for XR30 run {run_id}.')
+              except urllib.error.HTTPError as error:
+                  if error.code != 409 or get_run()['status'] != 'completed':
+                      raise
+                  print('Run completed before cancellation was applied.')
+          PY
