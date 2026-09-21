@@ -19,6 +19,7 @@ on:
       - 'toolchain/**'
     branches-ignore:
       - master
+      - xr30-25.12
 
 permissions:
   contents: read

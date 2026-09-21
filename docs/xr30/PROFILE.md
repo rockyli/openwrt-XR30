@@ -44,6 +44,16 @@ before requesting cancellation. It uses an ephemeral GitHub token with Actions
 write permission only in that job; the firmware build retains read-only access.
 Cancellation tags do not trigger firmware builds or releases.
 
+The inherited generic package and kernel workflows skip pushes to
+`xr30-25.12`; their pull-request checks and other branch rules are unchanged.
+The dedicated XR30 workflow still requires a CI tag or manual dispatch.
+
+Both XR30 image recipes are reassigned after `DEVICE_DTS` is overridden.
+The inherited RAX3000M recipes use immediate Make assignments, so changing
+`DEVICE_DTS` alone leaves their FIT commands pointing at the RAX3000M DTB.
+CI evaluates both profiles' actual Make definitions before building and then
+checks the model in the resulting FIT images after applying the eMMC overlay.
+
 CI checks both FIT files for the runtime model, compatibility identity and
 bootloader-selected eMMC configuration. A successful build is not hardware
 validation. Treat outputs as candidates until the physical tests below pass.
