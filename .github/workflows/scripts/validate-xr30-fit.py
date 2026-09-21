@@ -34,6 +34,28 @@ def extract(fit, node, dest):
     dest.write_bytes(data)
 
 
+def check_leds(tree):
+    nodes = subprocess.check_output(
+        ["fdtget", "-l", str(tree), "/gpio-leds"], text=True
+    ).split()
+    if set(nodes) != {"led-2", "led-white"}:
+        raise ValueError(f"{tree.name}: expected only XR30 red and white LEDs, got {nodes}")
+    pio = prop(tree, "/__symbols__", "pio")
+    controller = int(prop(tree, pio, "phandle", "x"), 16)
+    # Linux LED binding: WHITE=0, RED=1; GPIO_ACTIVE_LOW=1.
+    for node, gpio, color in (("led-2", 35, 1), ("led-white", 34, 0)):
+        path = "/gpio-leds/" + node
+        cells = [int(cell, 16) for cell in prop(tree, path, "gpios", "x").split()]
+        if cells != [controller, gpio, 1]:
+            raise ValueError(f"{tree.name}: unexpected GPIO wiring for {node}: {cells}")
+        if int(prop(tree, path, "color", "x"), 16) != color or prop(tree, path, "function") != "status":
+            raise ValueError(f"{tree.name}: unexpected LED color/function for {node}")
+    for alias, node in (("led-boot", "led-2"), ("led-failsafe", "led-2"),
+                        ("led-running", "led-white"), ("led-upgrade", "led-white")):
+        if prop(tree, "/aliases", alias) != "/gpio-leds/" + node:
+            raise ValueError(f"{tree.name}: unexpected {alias} LED")
+
+
 def check(fit):
     overlay = "mt7981b-cmcc-rax3000m-emmc"
     if prop(fit, "/configurations", "default") != "config-1":
@@ -57,8 +79,9 @@ def check(fit):
                 raise ValueError(f"{fit.name}: {tree.name} model is {model!r}; expected 'XR30'")
             if prop(tree, "/", "compatible").split() != ["cmcc,rax3000m", "mediatek,mt7981"]:
                 raise ValueError("RAX3000M runtime compatibility changed")
+            check_leds(tree)
         prop(merged, "/chosen", "rootdisk", "x")
-    print(f"{fit.name}: XR30 model and existing eMMC FIT selection verified")
+    print(f"{fit.name}: XR30 model, red/white LEDs and existing eMMC FIT selection verified")
 
 
 if __name__ == "__main__":

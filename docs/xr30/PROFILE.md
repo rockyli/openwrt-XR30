@@ -5,7 +5,7 @@ the build target `cmcc_xr30`. It reuses the existing RAX3000M hardware descripti
 packages, partition handling and upgrade implementation. It is a personal
 firmware customization, not yet an independent upstream device port.
 
-The base DTS includes the RAX3000M DTS and overrides only `model`. Runtime
+The base DTS includes the RAX3000M DTS and overrides the model and LEDs. Runtime
 `compatible`, `board_name` and image `supported_devices` remain
 `cmcc,rax3000m`. This is intentional: changing the compatibility identity would
 also require a separately verified migration and board-script integration.
@@ -54,7 +54,7 @@ The inherited RAX3000M recipes use immediate Make assignments, so changing
 CI evaluates both profiles' actual Make definitions before building and then
 checks the model in the resulting FIT images after applying the eMMC overlay.
 
-CI checks both FIT files for the runtime model, compatibility identity and
+CI checks both FIT files for the runtime model, red/white LEDs, compatibility identity and
 bootloader-selected eMMC configuration. A successful build is not hardware
 validation. Treat outputs as candidates until the physical tests below pass.
 The 448 MiB setting is specific to the recorded production partition layout;
@@ -81,11 +81,29 @@ These defaults take effect on a fresh installation or when configuration is
 reset. Builds already running use their original source commit and do not
 incorporate this change.
 
+## LEDs and buttons
+
+The DDR4/eMMC XR30 (RAX3000Z enhanced version) uses a white projection LED on
+GPIO34 and a red LED on GPIO35, both active low. The XR30 DTS removes the
+inherited RAX3000M green/blue LED nodes on GPIO9/GPIO12, retains the red LED,
+and adds `white:status`. Boot/failsafe uses red; running/upgrade uses white.
+These are Linux status indicators; this change does not alter bootloader LEDs.
+
+The user verified both LED channels by temporary on/off tests while running
+the official RAX3000M firmware. RESET on GPIO1 reported press/release events
+with its destructive actions temporarily replaced by logging. Actual factory
+reset behavior was not tested, and the user restored the original handlers.
+The physical Mesh button produced no event in that test. At the user's request,
+further Mesh investigation is deferred and its inherited GPIO0/BTN_9/EV_SW
+definition is unchanged. It is not presented as a working WPS button.
+
 ## Validation status and remaining work
 
 Before this change, the user reports normal WAN/LAN and dual-band Wi-Fi on the
-official RAX3000M image. LED and reset-button behavior remain untested. These
-results do not establish that a newly built XR30 image works.
+official RAX3000M image. LED electrical behavior and RESET events are confirmed
+as described above. Boot/status indication in the updated XR30 image, actual
+factory reset, and Mesh behavior remain unverified. These results do not
+establish that a newly built XR30 image works.
 
 For each candidate, check the checksum and run `sysupgrade -T` on the intended
 device before considering a normal system upgrade. Confirm the target device's

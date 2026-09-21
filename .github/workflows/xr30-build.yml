@@ -216,7 +216,10 @@ jobs:
           Keep configs, revision records and matching packages with these images.
           These are not official OpenWrt release binaries. Official kmod compatibility is not assumed.
           Private signing keys are not included; package-feed trust needs separate setup.
-          No new bootloader or GPT artifacts are included. LED and reset tests remain outstanding.
+          LEDs: red GPIO35 for boot/failsafe; white GPIO34 for running/upgrade; both active low.
+          LED on/off and RESET events were tested on hardware using the previous official firmware.
+          Updated-image status indication and actual factory reset still need testing; Mesh is deferred.
+          No new bootloader or GPT artifacts are included.
           EOF
           cd "$OUTPUT_DIR"
           sha256sum ./*.itb matching-packages.tar.gz > SHA256SUMS
