@@ -54,12 +54,25 @@ jobs:
           test "$(git -C "$BUILD_DIR" rev-parse HEAD)" = "$SOURCE_COMMIT"
           printf '%s\n' "$SOURCE_COMMIT" > "$OUTPUT_DIR/openwrt-commit.txt"
           printf '%s\n' "$GITHUB_SHA" > "$OUTPUT_DIR/workflow-commit.txt"
-          printf 'SOURCE_DATE_EPOCH=%s\n' "$(git -C "$BUILD_DIR" log -1 --format=%ct)" >> "$GITHUB_ENV"
+          epoch=$(python3 -c 'import json, os; from pathlib import Path; print(json.loads((Path(os.environ["BUILD_DIR"]) / "config/xr30-official/lock.json").read_text())["source_date_epoch"])')
+          printf 'SOURCE_DATE_EPOCH=%s\n' "$epoch" >> "$GITHUB_ENV"
+          baseline=$(python3 -c 'import json, os; from pathlib import Path; print(json.loads((Path(os.environ["BUILD_DIR"]) / "config/xr30-official/lock.json").read_text())["source_commit"])')
+          git -C "$BUILD_DIR" fetch --depth=1 --no-tags origin "$baseline"
+          # Device descriptions and image recipes may differ; kernel/toolchain
+          # sources and build rules must remain identical to this release.
+          git -C "$BUILD_DIR" diff --exit-code "$baseline" HEAD -- \
+            include tools toolchain scripts 'config/Config-*' package/kernel \
+            target/linux/generic target/linux/mediatek/Makefile \
+            target/linux/mediatek/filogic 'target/linux/mediatek/patches-*' \
+            'target/linux/mediatek/files*' target/linux/mediatek/dts \
+            ':!target/linux/mediatek/dts/mt7981b-cmcc-xr30.dts'
 
       - name: Check XR30 image recipes
         shell: bash
         working-directory: ${{ env.BUILD_DIR }}
-        run: python3 .github/workflows/scripts/test-xr30-image-recipes.py
+        run: |
+          python3 .github/workflows/scripts/test-xr30-image-recipes.py
+          python3 .github/workflows/scripts/test-xr30-official-abi.py
 
       - name: Install pinned feeds
         shell: bash
@@ -89,40 +102,15 @@ jobs:
         working-directory: ${{ env.BUILD_DIR }}
         run: |
           set -euo pipefail
-          cp config/xr30.config .config
+          python3 .github/workflows/scripts/xr30-official-abi.py seed
+          cp -r config/xr30-official "$OUTPUT_DIR/official-baseline"
           printf 'CONFIG_VERSION_CODE="xr30-%s"\n' "${SOURCE_COMMIT:0:12}" >> .config
           cp .config "$OUTPUT_DIR/config.seed"
           make defconfig 2>&1 | tee "$OUTPUT_DIR/defconfig.log"
           # Preserve the generated configuration even when validation fails.
           cp .config "$OUTPUT_DIR/config.full"
           ./scripts/diffconfig.sh > "$OUTPUT_DIR/config.diff"
-          for expected in \
-            'CONFIG_TARGET_mediatek_filogic_DEVICE_cmcc_xr30=y' \
-            'CONFIG_PACKAGE_luci=y' \
-            'CONFIG_PACKAGE_dnsmasq=y' \
-            'CONFIG_PACKAGE_kmod-tun=y' \
-            'CONFIG_PACKAGE_kmod-inet-diag=y' \
-            'CONFIG_PACKAGE_kmod-nft-tproxy=y' \
-            'CONFIG_TARGET_ROOTFS_PARTSIZE=448' \
-            'CONFIG_IMAGEOPT=y' \
-            'CONFIG_PREINITOPT=y' \
-            'CONFIG_TARGET_DEFAULT_LAN_IP_FROM_PREINIT=y' \
-            'CONFIG_TARGET_PREINIT_IP="192.168.10.1"' \
-            'CONFIG_TARGET_PREINIT_NETMASK="255.255.255.0"' \
-            'CONFIG_TARGET_PREINIT_BROADCAST="192.168.10.255"' \
-            'CONFIG_VERSIONOPT=y' \
-            'CONFIG_VERSION_NUMBER="25.12.5-XR30"' \
-            'CONFIG_VERSION_FILENAMES=y'; do
-            if ! grep -Fqx "$expected" .config; then
-              echo "::error::Generated configuration is missing: $expected"
-              exit 1
-            fi
-          done
-          device_count=$(grep -c '^CONFIG_TARGET_.*_DEVICE_.*=y$' .config || true)
-          if [ "$device_count" -ne 1 ]; then
-            echo "::error::Expected one selected device, found $device_count"
-            exit 1
-          fi
+          python3 .github/workflows/scripts/xr30-official-abi.py config
           git diff --exit-code
           test ! -d files
 
@@ -132,6 +120,19 @@ jobs:
         run: |
           set -euo pipefail
           make download -j8 2>&1 | tee "$OUTPUT_DIR/download.log"
+
+      - name: Build toolchain and check official kernel ABI
+        shell: bash
+        working-directory: ${{ env.BUILD_DIR }}
+        run: |
+          set -euo pipefail
+          jobs=$(nproc)
+          if [ "$jobs" -gt 4 ]; then jobs=4; fi
+          make -j"$jobs" tools/install V=s 2>&1 | tee "$OUTPUT_DIR/tools.log"
+          make -j"$jobs" toolchain/install V=s 2>&1 | tee "$OUTPUT_DIR/toolchain.log"
+          # The DTB target configures the real kernel before packaging any image.
+          make -j"$jobs" target/linux/dtb V=s 2>&1 | tee "$OUTPUT_DIR/kernel-configure.log"
+          python3 .github/workflows/scripts/xr30-official-abi.py kernel --output "$OUTPUT_DIR"
 
       - name: Compile firmware
         shell: bash
@@ -202,18 +203,27 @@ jobs:
             test -f "$file"
             cp "$file" "$OUTPUT_DIR/"
           done
-          manifest="$target_dir/openwrt-25.12.5-xr30-mediatek-filogic-cmcc_xr30.manifest"
-          test -s "$manifest"
-          for package in kmod-tun kmod-inet-diag kmod-nft-tproxy kmod-nf-tproxy; do
-            if ! grep -q "^${package} - " "$manifest"; then
-              echo "::error::Firmware manifest is missing required kernel package: $package"
-              exit 1
-            fi
-          done
-          if grep -Eq '^(tailscale|luci-app-tailscale-community|luci-app-openclash) - ' "$manifest"; then
-            echo '::error::Optional VPN/proxy applications must remain separately installed.'
-            exit 1
-          fi
+          # Multi-profile builds have a common manifest. Inspect the actual
+          # single device rootfs so device-specific packages are also covered.
+          shopt -s nullglob
+          rootfs=(build_dir/target-*/linux-mediatek_filogic/target-dir-*)
+          test "${#rootfs[@]}" -eq 1
+          staging_dir/host/bin/apk --root "${rootfs[0]}" --arch aarch64_cortex-a53 \
+            --no-logfile --no-network --repositories-file /dev/null \
+            list --quiet --manifest | sort | sed 's/ / - /' > "$OUTPUT_DIR/xr30-installed-packages.manifest"
+          python3 .github/workflows/scripts/xr30-official-abi.py kernel --output "$OUTPUT_DIR"
+          python3 .github/workflows/scripts/xr30-official-abi.py image --output "$OUTPUT_DIR"
+          # Test signed official repositories against an isolated copy, leaving
+          # the firmware rootfs and installed package selection unchanged.
+          check_root=$(mktemp -d "$RUNNER_TEMP/xr30-apk-check.XXXXXX")
+          trap 'rm -rf "$check_root"' EXIT
+          cp -a "${rootfs[0]}/." "$check_root/"
+          apk=("$PWD/staging_dir/host/bin/apk" --root "$check_root" \
+            --arch aarch64_cortex-a53 --keys-dir "$check_root/etc/apk/keys" \
+            --no-scripts --no-logfile)
+          "${apk[@]}" update 2>&1 | tee "$OUTPUT_DIR/official-apk-update.log"
+          "${apk[@]}" add --simulate kmod-tun kmod-inet-diag kmod-nft-tproxy \
+            tailscale luci-app-tailscale-community 2>&1 | tee "$OUTPUT_DIR/official-apk-install-simulation.log"
           # Preserve matching package outputs without uploading signing keys.
           # Do not use an official kmod feed unless ABI compatibility is verified.
           tar -czf "$OUTPUT_DIR/matching-packages.tar.gz" \
@@ -224,15 +234,18 @@ jobs:
           Existing RAX3000M FIT overlay names and partition handling are retained.
           This build uses the exact triggering repository commit, not the fixed baseline.
           LuCI and a 448 MiB production partition setting are selected.
-          TUN, INET diagnostics and nftables TPROXY kernel packages are included with dependencies.
+          Kernel configuration is derived from the pinned official release; ABI and kmod feed checks passed.
+          Optional TUN/INET diagnostics/TPROXY modules are compiled but not preinstalled.
+          Signed official feeds passed a simulated Tailscale and optional module installation.
+          Actual module loading and application operation still require hardware validation.
           Tailscale, OpenClash and their LuCI apps are installed separately after flashing.
           Fresh defaults: LAN/failsafe 192.168.10.1/24; LAN DHCP pool .100-.249, 12h leases.
           Preserving settings during sysupgrade preserves the old LAN/DHCP configuration.
           Build and FIT checks do not establish hardware compatibility.
           Confirm the target layout, recovery path, checksum and sysupgrade -T before flashing.
           Keep configs, revision records and matching packages with these images.
-          These are not official OpenWrt release binaries. Official kmod compatibility is not assumed.
-          Private signing keys are not included; package-feed trust needs separate setup.
+          These are custom XR30 binaries targeting the exact official 25.12.5 kernel module ABI.
+          Official feeds use installed OpenWrt signing keys. Locally built package archives need separate trust setup.
           LEDs: red GPIO35 for boot/failsafe; white GPIO34 for running/upgrade; both active low.
           LED on/off and RESET events were tested on hardware using the previous official firmware.
           Updated-image status indication and actual factory reset still need testing; Mesh is deferred.
@@ -240,7 +253,7 @@ jobs:
           EOF
           cd "$OUTPUT_DIR"
           sha256sum ./*.itb matching-packages.tar.gz > SHA256SUMS
-          printf 'Both FIT images passed structure inspection. Hardware testing remains required.\n' > VALIDATION_OK.txt
+          printf 'FIT, kernel ABI, module feed and signed APK dependency checks passed. Hardware testing remains required.\n' > VALIDATION_OK.txt
           rm VALIDATION_PENDING.txt
           printf '## XR30 development build completed\n\n' >> "$GITHUB_STEP_SUMMARY"
           printf 'Source: `%s`\n\nDownload the artifact below; hardware testing is still required.\n' "$SOURCE_COMMIT" >> "$GITHUB_STEP_SUMMARY"

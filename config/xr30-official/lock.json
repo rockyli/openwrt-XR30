@@ -1,0 +1,19 @@
+{
+  "release": "25.12.5",
+  "target": "mediatek/filogic",
+  "arch": "aarch64_cortex-a53",
+  "source_commit": "f0a60eee2fe051741c643ea6118718aae1ef17fb",
+  "source_date_epoch": 1782737960,
+  "base_url": "https://downloads.openwrt.org/releases/25.12.5/targets/mediatek/filogic",
+  "kernel": {
+    "release": "1",
+    "vermagic": "5a6c1f71be683ae9980b15d3ce73e24d",
+    "version": "6.12.94"
+  },
+  "sha256": {
+    "config.buildinfo": "d79d1c4b3a18dac919371f8d9f1a9350363d9b94261744bd2cc2f5c3e4c17115",
+    "feeds.buildinfo": "e11279b01e7fea7f7d399e25e969d9382be6891071cbc1225804195224b27b52",
+    "version.buildinfo": "80987aafdf5a7f03f7c534a27c78b5cc2a190af05e46e8bcd8a854c2a93c4001",
+    "profiles.json": "a1c448c58e8a1cca016ae0ce0d0d02e5f53b97e3b67a8d9e2ee4aee34e602dd2"
+  }
+}
