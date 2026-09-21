@@ -220,9 +220,11 @@ jobs:
           cp -a "${rootfs[0]}/." "$check_root/"
           apk=("$PWD/staging_dir/host/bin/apk" --root "$check_root" \
             --arch aarch64_cortex-a53 --keys-dir "$check_root/etc/apk/keys" \
-            --no-scripts --no-logfile)
+            --no-logfile)
           "${apk[@]}" update 2>&1 | tee "$OUTPUT_DIR/official-apk-update.log"
-          "${apk[@]}" add --simulate kmod-tun kmod-inet-diag kmod-nft-tproxy \
+          # APK 3 exposes --no-scripts only for commit commands such as add;
+          # update accepts global options only. Keep signature checks enabled.
+          "${apk[@]}" add --simulate --no-scripts kmod-tun kmod-inet-diag kmod-nft-tproxy \
             tailscale luci-app-tailscale-community 2>&1 | tee "$OUTPUT_DIR/official-apk-install-simulation.log"
           # Preserve matching package outputs without uploading signing keys.
           # Do not use an official kmod feed unless ABI compatibility is verified.
