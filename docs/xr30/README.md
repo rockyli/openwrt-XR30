@@ -9,6 +9,9 @@ release images.
 
 ## Branches
 
+Next-version work and the latest stable-release check are recorded in
+[the XR30 TODO list](TODO.md).
+
 | Branch | Purpose |
 | --- | --- |
 | `main` | Unmodified official development branch |
