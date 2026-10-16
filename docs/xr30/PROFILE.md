@@ -156,6 +156,28 @@ These defaults take effect on a fresh installation or when configuration is
 reset. Builds already running use their original source commit and do not
 incorporate this change.
 
+## HTTPS management and release acceptance
+
+The XR30 seed explicitly installs native uhttpd, its ubus module, the mbedTLS
+ustream backend and `px5g-mbedtls`, alongside LuCI. The generator runs only when
+the native uhttpd startup needs a certificate/key; there is no new daemon or
+custom certificate-generation script. No certificate or private key is baked
+into the image. This removes the dependency on credentials left by an earlier
+official firmware installation.
+
+The uhttpd package installs a native `keep.d` entry for the default generated
+certificate and private key. This is needed because this APK build records only
+files present during packaging in `conffiles_static`. Custom certificate paths
+still require owner-managed `/etc/sysupgrade.conf` entries. An old source image
+may lack the keep entry: inspect its backup list **before** upgrading, even if
+the destination is fixed.
+
+CI checks the actual device rootfs and ships a read-only health check plus the
+[HTTPS release acceptance matrix](HTTPS-ACCEPTANCE.md). `curl` is a test-device
+dependency, not an extra firmware package. Image checks cannot prove first boot,
+LAN/Tailnet reachability or sysupgrade behavior; every release must complete the
+hardware matrix independently of Sidecar installation.
+
 ## LEDs and buttons
 
 The DDR4/eMMC XR30 (RAX3000Z enhanced version) uses a white projection LED on

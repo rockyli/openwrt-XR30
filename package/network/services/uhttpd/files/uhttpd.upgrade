@@ -1,0 +1,4 @@
+# Generated at runtime, so absent from APK's build-time conffiles_static.
+# Custom certificate paths must be added to /etc/sysupgrade.conf by the owner.
+/etc/uhttpd.crt
+/etc/uhttpd.key
