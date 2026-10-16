@@ -1,0 +1,32 @@
+name: XR30 - HTTPS regression checks
+
+on:
+  pull_request:
+    branches: [xr30-25.12]
+    paths:
+      - 'config/xr30.config'
+      - 'package/network/services/uhttpd/**'
+      - 'package/base-files/files/sbin/sysupgrade'
+      - 'tests/xr30/**'
+      - '.github/workflows/scripts/*xr30*'
+      - '.github/workflows/xr30-https-tests.yml'
+      - '.github/workflows/xr30-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  https:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Check native startup, preservation, image checks and diagnostics
+        run: |
+          python3 .github/workflows/scripts/test-xr30-image-recipes.py
+          python3 .github/workflows/scripts/test-xr30-official-abi.py
+          python3 .github/workflows/scripts/test-xr30-https.py
+          sh -n tests/xr30/check-management-https.sh

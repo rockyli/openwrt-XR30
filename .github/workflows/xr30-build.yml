@@ -73,6 +73,8 @@ jobs:
         run: |
           python3 .github/workflows/scripts/test-xr30-image-recipes.py
           python3 .github/workflows/scripts/test-xr30-official-abi.py
+          python3 .github/workflows/scripts/test-xr30-https.py
+          sh -n tests/xr30/check-management-https.sh
 
       - name: Install pinned feeds
         shell: bash
@@ -211,6 +213,11 @@ jobs:
           staging_dir/host/bin/apk --root "${rootfs[0]}" --arch aarch64_cortex-a53 \
             --no-logfile --no-network --repositories-file /dev/null \
             list --quiet --manifest | sort | sed 's/ / - /' > "$OUTPUT_DIR/xr30-installed-packages.manifest"
+          python3 .github/workflows/scripts/check-xr30-https-image.py \
+            --rootfs "${rootfs[0]}" --manifest "$OUTPUT_DIR/xr30-installed-packages.manifest" \
+            2>&1 | tee "$OUTPUT_DIR/https-image-check.log"
+          cp tests/xr30/check-management-https.sh docs/xr30/HTTPS-ACCEPTANCE.md "$OUTPUT_DIR/"
+          printf 'PENDING: complete HTTPS-ACCEPTANCE.md on hardware before publishing a release.\n' > "$OUTPUT_DIR/HTTPS_HARDWARE_PENDING.txt"
           python3 .github/workflows/scripts/xr30-official-abi.py kernel --output "$OUTPUT_DIR"
           python3 .github/workflows/scripts/xr30-official-abi.py image --output "$OUTPUT_DIR"
           # Test signed official repositories against an isolated copy, leaving
@@ -236,6 +243,10 @@ jobs:
           Existing RAX3000M FIT overlay names and partition handling are retained.
           This build uses the exact triggering repository commit, not the fixed baseline.
           LuCI and a 448 MiB production partition setting are selected.
+          HTTPS dependencies and native certificate defaults passed device-rootfs checks.
+          Native uhttpd generates per-device certificates; firmware includes no certificate/private key.
+          Run check-management-https.sh and complete HTTPS-ACCEPTANCE.md before release.
+          Upgrade from older images: verify sysupgrade -l includes the certificate and key before flashing.
           Kernel configuration is derived from the pinned official release; ABI and kmod feed checks passed.
           Optional TUN/INET diagnostics/TPROXY modules are compiled but not preinstalled.
           Signed official feeds passed a simulated Tailscale and optional module installation.
@@ -255,7 +266,7 @@ jobs:
           EOF
           cd "$OUTPUT_DIR"
           sha256sum ./*.itb matching-packages.tar.gz > SHA256SUMS
-          printf 'FIT, kernel ABI, module feed and signed APK dependency checks passed. Hardware testing remains required.\n' > VALIDATION_OK.txt
+          printf 'FIT, kernel ABI, module feed, HTTPS image and signed APK dependency checks passed. Hardware testing remains required; see HTTPS_HARDWARE_PENDING.txt.\n' > VALIDATION_OK.txt
           rm VALIDATION_PENDING.txt
           printf '## XR30 development build completed\n\n' >> "$GITHUB_STEP_SUMMARY"
           printf 'Source: `%s`\n\nDownload the artifact below; hardware testing is still required.\n' "$SOURCE_COMMIT" >> "$GITHUB_STEP_SUMMARY"
