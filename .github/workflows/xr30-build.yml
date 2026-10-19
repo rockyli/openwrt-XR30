@@ -168,7 +168,7 @@ jobs:
           set -euo pipefail
           target_dir=bin/targets/mediatek/filogic
           # include/image.mk normalizes the version to lowercase in filenames.
-          prefixes=(openwrt-25.12.5-xr30-mediatek-filogic-cmcc_xr30)
+          prefixes=(openwrt-25.12.6-xr30-mediatek-filogic-cmcc_xr30)
           for suffix in squashfs-sysupgrade.itb initramfs-recovery.itb; do
             candidates=()
             for prefix in "${prefixes[@]}"; do
@@ -238,7 +238,7 @@ jobs:
           tar -czf "$OUTPUT_DIR/matching-packages.tar.gz" \
             bin/packages "$target_dir/packages"
           cat > "$OUTPUT_DIR/XR30-NOTES.txt" <<'EOF'
-          XR30 personal firmware candidate based on OpenWrt 25.12.5.
+          XR30 personal firmware candidate based on OpenWrt 25.12.6.
           Runtime model is XR30; board compatibility remains cmcc,rax3000m.
           Existing RAX3000M FIT overlay names and partition handling are retained.
           This build uses the exact triggering repository commit, not the fixed baseline.
@@ -257,7 +257,7 @@ jobs:
           Build and FIT checks do not establish hardware compatibility.
           Confirm the target layout, recovery path, checksum and sysupgrade -T before flashing.
           Keep configs, revision records and matching packages with these images.
-          These are custom XR30 binaries targeting the exact official 25.12.5 kernel module ABI.
+          These are custom XR30 binaries targeting the exact official 25.12.6 kernel module ABI.
           Official feeds use installed OpenWrt signing keys. Locally built package archives need separate trust setup.
           LEDs: red GPIO35 for boot/failsafe; white GPIO34 for running/upgrade; both active low.
           LED on/off and RESET events were tested on hardware using the previous official firmware.
@@ -275,7 +275,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: xr30-25.12.5-development-${{ github.run_number }}-${{ github.run_attempt }}
+          name: xr30-25.12.6-development-${{ github.run_number }}-${{ github.run_attempt }}
           path: ${{ env.OUTPUT_DIR }}/
           if-no-files-found: warn
           retention-days: 14

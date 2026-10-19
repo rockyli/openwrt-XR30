@@ -71,13 +71,13 @@ class OfficialABI(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Wrong installed kmod feed"):
             abi.check_image(self.root, self.output)
         feed.write_text(good_feed)
-        manifest.write_text(manifest.read_text() + "kmod-tun - 6.12.94-r1\n")
+        manifest.write_text(manifest.read_text() + f"kmod-tun - {self.kernel['version']}-r1\n")
         with self.assertRaisesRegex(ValueError, "unexpectedly preinstalled"):
             abi.check_image(self.root, self.output)
 
     def test_image_rejects_incompatible_installed_kernel(self):
         manifest, _ = self.image_fixture()
-        manifest.write_text("kernel - 6.12.94~incorrect-r1\n")
+        manifest.write_text(f"kernel - {self.kernel['version']}~incorrect-r{self.kernel['release']}\n")
         with self.assertRaisesRegex(ValueError, "Installed kernel package ABI"):
             abi.check_image(self.root, self.output)
 
