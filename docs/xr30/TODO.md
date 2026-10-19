@@ -42,8 +42,16 @@
 
 2026-09-29：核对 [官方发布目录](https://downloads.openwrt.org/releases/)
 及 [官方源码标签](https://github.com/openwrt/openwrt/tags)，最新正式版仍为
-`25.12.5`，与当前 `config/xr30-official/lock.json` 一致。本次不合并开发分支，
+`25.12.5`，与当时的 `config/xr30-official/lock.json` 一致。本次不合并开发分支，
 不启动无版本变化的固件构建；本记录不表示上述存储功能已经实现。
+
+2026-10-19：确认官方 `v25.12.6` 已发布，合并正式标签
+`64900e756efa667774214f9c6b17c113222e01f7` 到 `xr30-25.12`。
+同步官方 Filogic 构建配置、feeds、版本快照和软件源；内核基线为
+`6.12.112`，官方 ABI 为 `f0a7348f9cb959e1bf4d0447669b031e`。
+保留 XR30 型号、红白 LED、LAN/DHCP 默认值、eMMC FIT 兼容配置及 HTTPS 修复。
+构建使用现有专用 CI 验证真实内核 ABI、镜像和 HTTPS 依赖；成功构建仍不代表实机验收。
+本次仅同步上游与构建基线，以上 eMMC 自动初始化事项仍未实现。
 
 后续同系列正式更新合入现有 XR30 分支并构建；新版本系列另建对应 XR30
 分支迁移适配。默认不切换到 RC 或 snapshot。

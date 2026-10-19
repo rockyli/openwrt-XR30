@@ -7,6 +7,12 @@ runtime model while retaining RAX3000M compatibility. It is not yet an
 independent upstream device port and has not produced hardware-tested XR30
 release images.
 
+The current integration baseline is `v25.12.6`
+(`64900e756efa667774214f9c6b17c113222e01f7`). The official build metadata and
+kernel module ABI are pinned in `config/xr30-official/lock.json`. The existing
+HTTPS initialization and certificate-preservation fixes are retained. Automatic
+eMMC data-partition initialization remains a TODO, not an enabled feature.
+
 ## Branches
 
 Next-version work and the latest stable-release check are recorded in

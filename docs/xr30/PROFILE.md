@@ -22,10 +22,10 @@ profile; it uses the already installed bootloader and partition table.
 
 The seed combines the pinned official `config/xr30-official/config.buildinfo`
 with `config/xr30.config`: Filogic, XR30, LuCI, squashfs, initramfs,
-448 MiB rootfs partition setting, and a `25.12.5-XR30` version suffix.
+448 MiB rootfs partition setting, and a `25.12.6-XR30` version suffix.
 `CONFIG_IMAGEOPT=y` is required for Kconfig to retain the custom version
 options. The runtime version uses `XR30`, while OpenWrt normalizes the version
-portion of image filenames to lowercase (`25.12.5-xr30`).
+portion of image filenames to lowercase (`25.12.6-xr30`).
 The separate manual `XR30 - Build development firmware` workflow builds its
 exact triggering commit, verifies pinned feeds, and preserves revision records,
 expanded configuration, package outputs and checksums. The official baseline
@@ -63,14 +63,14 @@ the unchanged compatibility string cannot distinguish all RAX3000M variants.
 
 ## Official kernel module compatibility
 
-The build now targets the official 25.12.5 Filogic kernel module repository.
+The build now targets the official 25.12.6 Filogic kernel module repository.
 The [release lock](../../config/xr30-official/lock.json) records the official
 source commit, kernel version/release/ABI, architecture and build timestamp.
 It also records the published SHA256 checksums of the official build metadata;
 config, feeds and version snapshots are kept alongside it. The official
-[config.buildinfo](https://downloads.openwrt.org/releases/25.12.5/targets/mediatek/filogic/config.buildinfo)
+[config.buildinfo](https://downloads.openwrt.org/releases/25.12.6/targets/mediatek/filogic/config.buildinfo)
 and
-[profiles.json](https://downloads.openwrt.org/releases/25.12.5/targets/mediatek/filogic/profiles.json)
+[profiles.json](https://downloads.openwrt.org/releases/25.12.6/targets/mediatek/filogic/profiles.json)
 are the sources of these settings. Upgrading the release requires reviewing and
 updating the lock and snapshots together, not just changing the repository URL.
 
