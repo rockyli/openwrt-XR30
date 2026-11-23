@@ -130,6 +130,13 @@ buildinfo: FORCE
 prepare: .config $(tools/stamp-compile) $(toolchain/stamp-compile)
 	$(_SINGLE)$(SUBMAKE) -r buildinfo
 
+# The buildbot toolchain check uses one tmp/.ver_check across recursive makes.
+# In XR30 CI, finish prepare (including buildinfo) before package cleanup.
+# package compilation already depends on cleanup. Keep parallel jobs within stages.
+ifeq ($(XR30_ORDERED_WORLD),1)
+$(package/stamp-cleanup): | prepare
+endif
+
 world: prepare $(target/stamp-compile) $(package/stamp-compile) $(package/stamp-install) $(target/stamp-install) FORCE
 	$(_SINGLE)$(SUBMAKE) -r package/index
 	$(_SINGLE)$(SUBMAKE) -r json_overview_image_info

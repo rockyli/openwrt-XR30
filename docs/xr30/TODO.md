@@ -49,6 +49,12 @@
 [失败作业与诊断产物](https://github.com/rockyli/openwrt-XR30/actions/runs/45147287421/attempts/1) ·
 [当时的版本检查规则](https://github.com/rockyli/openwrt-XR30/blob/163ab2c0068116faf1cf7c5c0a512824d603f486/toolchain/Makefile#L65-L75)
 
+第二次构建在相同的并发写入之后再次报缺少 `libgcc_s.so.*`。
+XR30 工作流现已在进入 `world` 前核对工具链版本记录，并通过 Make 的顺序依赖让
+`prepare`（含 `buildinfo`）、软件包清理和软件包编译依次运行，各阶段内部继续并行。
+本地并行调度回归已通过，完整固件构建结果待核对。
+[第二次失败作业](https://github.com/rockyli/openwrt-XR30/actions/runs/45147287421/attempts/2)
+
 **计划修改与验收**
 
 - [ ] 在全新的 CI 工作目录中，先串行核对检出提交并初始化工具链版本记录，再进入并行编译。

@@ -143,7 +143,15 @@ jobs:
           set -euo pipefail
           jobs=$(nproc)
           if [ "$jobs" -gt 4 ]; then jobs=4; fi
-          make -j"$jobs" V=s 2>&1 | tee "$OUTPUT_DIR/build.log"
+          # Check the initialized toolchain stamp before allowing world to proceed.
+          shopt -s nullglob
+          stamps=(staging_dir/toolchain-*/stamp/.ver_check)
+          test "${#stamps[@]}" -eq 1
+          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+          git log --no-show-signature --format=%h -1 -- toolchain > "$OUTPUT_DIR/toolchain-revision.txt"
+          test -s "$OUTPUT_DIR/toolchain-revision.txt"
+          diff -u "${stamps[0]}" "$OUTPUT_DIR/toolchain-revision.txt"
+          make -j"$jobs" XR30_ORDERED_WORLD=1 V=s world 2>&1 | tee "$OUTPUT_DIR/build.log"
 
       - name: Preserve images before validation
         shell: bash
