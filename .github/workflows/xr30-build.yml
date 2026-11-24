@@ -143,14 +143,19 @@ jobs:
           set -euo pipefail
           jobs=$(nproc)
           if [ "$jobs" -gt 4 ]; then jobs=4; fi
-          # Check the initialized toolchain stamp before allowing world to proceed.
-          shopt -s nullglob
-          stamps=(staging_dir/toolchain-*/stamp/.ver_check)
-          test "${#stamps[@]}" -eq 1
-          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
-          git log --no-show-signature --format=%h -1 -- toolchain > "$OUTPUT_DIR/toolchain-revision.txt"
-          test -s "$OUTPUT_DIR/toolchain-revision.txt"
-          diff -u "${stamps[0]}" "$OUTPUT_DIR/toolchain-revision.txt"
+          {
+            actual=$(git rev-parse HEAD)
+            echo "Source commit: expected=$SOURCE_COMMIT actual=$actual"
+            [[ "$actual" == "$SOURCE_COMMIT" ]] || exit 1
+            # The checkout step already compares the toolchain sources with the
+            # pinned release. Check the installed library that packaging consumes.
+            toolchain_dir=$(make -s --no-print-directory -f rules.mk TOPDIR="$PWD" val.TOOLCHAIN_DIR)
+            echo "Configured toolchain: $toolchain_dir"
+            if [[ -z "$toolchain_dir" || ! -s "$toolchain_dir/lib/libgcc_s.so.1" ]]; then
+              echo "::error::Missing installed runtime: $toolchain_dir/lib/libgcc_s.so.1"
+              exit 1
+            fi
+          } 2>&1 | tee "$OUTPUT_DIR/world-preflight.log"
           make -j"$jobs" XR30_ORDERED_WORLD=1 V=s world 2>&1 | tee "$OUTPUT_DIR/build.log"
 
       - name: Preserve images before validation
