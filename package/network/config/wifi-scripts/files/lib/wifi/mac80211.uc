@@ -93,6 +93,19 @@ for (let phy_name, phy in board.wlan) {
 			num_global_macaddr = board.wlan.defaults.ssids?.[band_name]?.mac_count;
 		}
 
+		// First configuration of the integrated XR30 radios only.
+		if (board.model?.name == 'XR30' && board.model?.id == 'cmcc,rax3000m' &&
+		    match(phy.path, /(^|\/)18000000\.wifi(\+[0-9]+)?$/)) {
+			if (band_name == '5g') {
+				country = 'CN';
+				channel = 36;
+				defaults = { ssid: defaults?.ssid, encryption: 'psk2+ccmp', key: '1234567890' };
+			} else if (band_name == '2g') {
+				defaults = null;
+				id += `\nset ${s}.disabled='1'`;
+			}
+		}
+
 		if (length(info.radios) > 0)
 			id += `\nset ${s}.radio='${radio.index}'`;
 

@@ -13,7 +13,7 @@
 ## Privacy and publication
 
 - Never commit device dumps, stock firmware backups, Factory/EEPROM data, calibration blobs, device-specific hashes, serial numbers, real MAC addresses, or private network details.
-- Never commit passwords, private keys, API tokens, VPN enrollment keys, actual `.env` files, or unsanitized router configs/logs/screenshots.
+- Never commit passwords, private keys, API tokens, VPN enrollment keys, actual `.env` files, or unsanitized router configs/logs/screenshots. The owner has explicitly approved one public factory credential for the XR30 5 GHz AP. This exception is limited to that Wi-Fi default.
 - Use placeholders in public examples. Set device credentials locally after installation.
 - Use GitHub Secrets only for credentials required by CI. Do not echo secrets, include them in build inputs that enter firmware, or upload them as artifacts.
 - Inspect the exact staged diff and new files before every commit. Ignore rules are an aid, not a security boundary; they do not remove tracked files.
