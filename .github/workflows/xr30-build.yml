@@ -229,16 +229,20 @@ jobs:
           python3 .github/workflows/scripts/check-xr30-https-image.py \
             --rootfs "${rootfs[0]}" --manifest "$OUTPUT_DIR/xr30-installed-packages.manifest" \
             2>&1 | tee "$OUTPUT_DIR/https-image-check.log"
-          for pkg in xr30-ml307r kmod-usb-net kmod-usb-net-cdc-ether; do
+          for pkg in xr30-ml307r kmod-usb-net kmod-usb-net-cdc-ether kmod-usb-net-rndis wifi-scripts wpad-basic-mbedtls; do
             grep -Fq "$pkg - " "$OUTPUT_DIR/xr30-installed-packages.manifest"
           done
-          for module in usbnet cdc_ether; do
+          for module in usbnet cdc_ether rndis_host; do
             test -n "$(find "${rootfs[0]}/lib/modules" -type f -name "$module.ko*" -print -quit)"
           done
           test -x "${rootfs[0]}/usr/libexec/xr30-name-ml307r"
           test -s "${rootfs[0]}/etc/hotplug.d/net/15-xr30-ml307r"
           test -s "${rootfs[0]}/etc/uci-defaults/90-xr30-ml307r"
           test -L "${rootfs[0]}/etc/rc.d/S19xr30-ml307r"
+          grep -Fxq rndis_host "${rootfs[0]}/etc/modules.d/usb-net-rndis"
+          cmp package/network/config/xr30-ml307r/files/name-device "${rootfs[0]}/usr/libexec/xr30-name-ml307r"
+          cmp package/network/config/xr30-ml307r/files/defaults "${rootfs[0]}/etc/uci-defaults/90-xr30-ml307r"
+          cmp package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc "${rootfs[0]}/lib/wifi/mac80211.uc"
           cp tests/xr30/check-management-https.sh docs/xr30/HTTPS-ACCEPTANCE.md "$OUTPUT_DIR/"
           printf 'PENDING: complete HTTPS-ACCEPTANCE.md on hardware before publishing a release.\n' > "$OUTPUT_DIR/HTTPS_HARDWARE_PENDING.txt"
           python3 .github/workflows/scripts/xr30-official-abi.py kernel --output "$OUTPUT_DIR"
@@ -276,6 +280,9 @@ jobs:
           Actual module loading and application operation still require hardware validation.
           Tailscale, OpenClash and their LuCI apps are installed separately after flashing.
           Fresh defaults: LAN/failsafe 192.168.10.1/24; LAN DHCP pool .100-.249, 12h leases.
+          Cellular DHCP: attach one ML307R, UFI001C or UFI003C; working wired WAN takes priority.
+          Clean wireless setup: 5 GHz LAN AP, WPA2-PSK/CCMP, CN channel 36 at up to 80 MHz.
+          The factory Wi-Fi passphrase is public. Set the country for your location. The 2.4 GHz radio starts disabled.
           Preserving settings during sysupgrade preserves the old LAN/DHCP configuration.
           Build and FIT checks do not establish hardware compatibility.
           Confirm the target layout, recovery path, checksum and sysupgrade -T before flashing.
