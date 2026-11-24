@@ -178,6 +178,24 @@ dependency, not an extra firmware package. Image checks cannot prove first boot,
 LAN/Tailnet reachability or sysupgrade behavior; every release must complete the
 hardware matrix independently of Sidecar installation.
 
+## ML307R USB uplink
+
+The XR30 seed installs the USB CDC Ethernet driver and defaults for the ML307R
+(`2ecc:3012`). The net hotplug handler identifies the modem by USB vendor,
+product and bound driver, then names its network device `ml307r0`. A scan before
+netifd starts covers a modem already attached at power-on. The `cellular`
+interface requests IPv4, gateway and DNS via DHCP and joins the default
+masquerading WAN zone. Its route metric of 100 gives a connected default wired
+WAN (metric 0) priority. This uses kernel routes, without Internet health probes.
+Existing user-defined `cellular` settings take precedence on a retained upgrade.
+
+On hardware, test a clean boot with the wired WAN disconnected. From a LAN
+client, log into LuCI over HTTPS, then check that `ifstatus cellular` reports
+an address, default route and DNS. Test Internet access and DNS from the LAN
+client, detach and reattach the modem, and repeat after a cold boot with the
+modem attached. With both uplinks connected, verify wired routing takes
+priority. Record hardware results separately from CI image checks.
+
 ## LEDs and buttons
 
 The DDR4/eMMC XR30 (RAX3000Z enhanced version) uses a white projection LED on

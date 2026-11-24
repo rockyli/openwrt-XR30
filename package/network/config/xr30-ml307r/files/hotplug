@@ -1,0 +1,2 @@
+[ "$ACTION" = add ] && [ -n "$DEVICENAME" ] || return 0
+/usr/libexec/xr30-name-ml307r "/sys/class/net/$DEVICENAME"

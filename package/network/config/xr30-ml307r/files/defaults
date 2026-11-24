@@ -1,0 +1,28 @@
+#!/bin/sh
+. /lib/functions.sh
+
+# An existing cellular interface and its firewall policy belong to the user.
+uci -q get network.cellular >/dev/null && exit 0
+
+find_wan_zone() {
+	local name
+	config_get name "$1" name
+	[ "$name" = wan ] && wan_zone=$1
+}
+
+wan_zone=
+config_load firewall
+config_foreach find_wan_zone zone
+[ -n "$wan_zone" ] || exit 1
+
+case " $(uci -q get "firewall.$wan_zone.network") " in
+	*" cellular "*) ;;
+	*) uci add_list "firewall.$wan_zone.network=cellular" || exit 1 ;;
+esac
+uci batch <<'UCI'
+set network.cellular=interface
+set network.cellular.device='ml307r0'
+set network.cellular.proto='dhcp'
+set network.cellular.metric='100'
+set network.cellular.peerdns='1'
+UCI

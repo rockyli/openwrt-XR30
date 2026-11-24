@@ -229,6 +229,16 @@ jobs:
           python3 .github/workflows/scripts/check-xr30-https-image.py \
             --rootfs "${rootfs[0]}" --manifest "$OUTPUT_DIR/xr30-installed-packages.manifest" \
             2>&1 | tee "$OUTPUT_DIR/https-image-check.log"
+          for pkg in xr30-ml307r kmod-usb-net kmod-usb-net-cdc-ether; do
+            grep -Fq "$pkg - " "$OUTPUT_DIR/xr30-installed-packages.manifest"
+          done
+          for module in usbnet cdc_ether; do
+            test -n "$(find "${rootfs[0]}/lib/modules" -type f -name "$module.ko*" -print -quit)"
+          done
+          test -x "${rootfs[0]}/usr/libexec/xr30-name-ml307r"
+          test -s "${rootfs[0]}/etc/hotplug.d/net/15-xr30-ml307r"
+          test -s "${rootfs[0]}/etc/uci-defaults/90-xr30-ml307r"
+          test -L "${rootfs[0]}/etc/rc.d/S19xr30-ml307r"
           cp tests/xr30/check-management-https.sh docs/xr30/HTTPS-ACCEPTANCE.md "$OUTPUT_DIR/"
           printf 'PENDING: complete HTTPS-ACCEPTANCE.md on hardware before publishing a release.\n' > "$OUTPUT_DIR/HTTPS_HARDWARE_PENDING.txt"
           python3 .github/workflows/scripts/xr30-official-abi.py kernel --output "$OUTPUT_DIR"

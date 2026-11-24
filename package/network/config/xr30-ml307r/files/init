@@ -1,0 +1,9 @@
+#!/bin/sh /etc/rc.common
+# Catch devices enumerated before UCI defaults or hotplug handlers were ready.
+START=19
+
+start() {
+	for netdev in /sys/class/net/*; do
+		/usr/libexec/xr30-name-ml307r "$netdev"
+	done
+}
