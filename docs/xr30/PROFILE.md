@@ -178,23 +178,38 @@ dependency, not an extra firmware package. Image checks cannot prove first boot,
 LAN/Tailnet reachability or sysupgrade behavior; every release must complete the
 hardware matrix independently of Sidecar installation.
 
-## ML307R USB uplink
+## USB cellular uplink
 
-The XR30 seed installs the USB CDC Ethernet driver and defaults for the ML307R
-(`2ecc:3012`). The net hotplug handler identifies the modem by USB vendor,
-product and bound driver, then names its network device `ml307r0`. A scan before
+The XR30 image includes CDC Ethernet for the ML307R (`2ecc:3012`, `cdc_ether`)
+and RNDIS for the UFI001C and UFI003C (`18d1:d001`, product string
+`HandsomeMod Device`, `rndis_host`). Attach one modem at a time, directly or
+via a USB hub. The net hotplug handler names the matching network device `cell0`. A scan before
 netifd starts covers a modem already attached at power-on. The `cellular`
 interface requests IPv4, gateway and DNS via DHCP and joins the default
 masquerading WAN zone. Its route metric of 100 gives a connected default wired
 WAN (metric 0) priority. This uses kernel routes, without Internet health probes.
 Existing user-defined `cellular` settings take precedence on a retained upgrade.
+The previous factory binding to `ml307r0` also works with all three modems.
+If retaining a temporary `ufi_test` DHCP client on `usb0`, remove that test
+interface before the upgrade so it cannot claim the modem during enumeration.
 
 On hardware, test a clean boot with the wired WAN disconnected. From a LAN
 client, log into LuCI over HTTPS, then check that `ifstatus cellular` reports
 an address, default route and DNS. Test Internet access and DNS from the LAN
 client, detach and reattach the modem, and repeat after a cold boot with the
 modem attached. With both uplinks connected, verify wired routing takes
-priority. Record hardware results separately from CI image checks.
+priority. Swap modems and check that each receives its own lease on `cellular`.
+A UFI without a working SIM can still grant a local DHCP lease. Verify mobile
+Internet separately with an active data SIM.
+
+## Wireless defaults
+
+On a clean installation the integrated 5 GHz radio starts a LAN access point
+using the existing default SSID (normally `OpenWrt`), WPA2-PSK/CCMP and the
+public factory passphrase. It starts with country `CN`, primary channel 36
+and 80 MHz bandwidth. Set the applicable country in LuCI when moving the router.
+The 2.4 GHz radio starts disabled and can be configured manually as a station.
+Existing wireless settings take precedence during a retained upgrade.
 
 ## LEDs and buttons
 
