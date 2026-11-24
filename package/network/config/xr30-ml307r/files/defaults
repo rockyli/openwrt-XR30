@@ -21,7 +21,7 @@ case " $(uci -q get "firewall.$wan_zone.network") " in
 esac
 uci batch <<'UCI'
 set network.cellular=interface
-set network.cellular.device='ml307r0'
+set network.cellular.device='cell0'
 set network.cellular.proto='dhcp'
 set network.cellular.metric='100'
 set network.cellular.peerdns='1'

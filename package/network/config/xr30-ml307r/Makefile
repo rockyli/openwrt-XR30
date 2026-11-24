@@ -2,7 +2,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=xr30-ml307r
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 PKG_LICENSE:=GPL-2.0-only
 
 include $(INCLUDE_DIR)/package.mk
@@ -10,8 +10,8 @@ include $(INCLUDE_DIR)/package.mk
 define Package/xr30-ml307r
   SECTION:=net
   CATEGORY:=Network
-  TITLE:=XR30 ML307R USB Ethernet uplink defaults
-  DEPENDS:=@TARGET_mediatek_filogic +kmod-usb-net-cdc-ether
+  TITLE:=XR30 ML307R and HandsomeMod USB Ethernet uplink defaults
+  DEPENDS:=@TARGET_mediatek_filogic +kmod-usb-net-cdc-ether +kmod-usb-net-rndis
   PKGARCH:=all
 endef
 
