@@ -43,6 +43,7 @@ proto_dhcpv6_init_config() {
 	proto_config_add_int "soltimeout"
 	proto_config_add_boolean fakeroutes
 	proto_config_add_boolean sourcefilter
+	proto_config_add_int ra_default_metric_offset
 	proto_config_add_boolean keep_ra_dnslifetime
 	proto_config_add_int "ra_holdoff"
 	proto_config_add_int 'verbose:range(0, 7)'
@@ -96,6 +97,12 @@ proto_dhcpv6_setup() {
 	# Configure
 	local sendopts
 	local opts=""
+	local ra_default_metric_offset
+	json_get_var ra_default_metric_offset ra_default_metric_offset
+	case "$ra_default_metric_offset" in
+		''|*[!0-9]*) ;;
+		*) proto_export "RA_DEFAULT_METRIC_OFFSET=$ra_default_metric_offset" ;;
+	esac
 	[ -n "$reqaddress" ] && append opts "-N$reqaddress"
 
 	[ -z "$reqprefix" -o "$reqprefix" = "auto" ] && reqprefix=0

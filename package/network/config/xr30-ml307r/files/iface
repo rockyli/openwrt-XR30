@@ -1,0 +1,6 @@
+# Also covers USB enumeration before netifd starts and network reloads.
+[ -f /etc/xr30-cellular6-auto ] || return 0
+case "$ACTION:$INTERFACE" in
+	ifup:loopback|ifup:lan|ifup:cellular|ifupdate:cellular)
+		/usr/libexec/xr30-cellular6 ;;
+esac

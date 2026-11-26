@@ -126,6 +126,10 @@ setup_interface () {
 		local valid="${entry%%,*}"
 		entry="${entry#*,}"
 		local metric="${entry%%,*}"
+		# netifd uses an explicit RA metric in preference to the interface metric.
+		if [ "$mask" = 0 ] && [ -n "$RA_DEFAULT_METRIC_OFFSET" ]; then
+			metric=$((${metric:-0} + RA_DEFAULT_METRIC_OFFSET))
+		fi
 
 		for xentry in $RA_ROUTES; do
 			local xprefix="${xentry%%,*}"

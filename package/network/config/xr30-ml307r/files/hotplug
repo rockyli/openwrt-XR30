@@ -1,2 +1,7 @@
-[ "$ACTION" = add ] && [ -n "$DEVICENAME" ] || return 0
-/usr/libexec/xr30-name-ml307r "/sys/class/net/$DEVICENAME"
+[ -n "$DEVICENAME" ] || return 0
+case "$ACTION" in
+	add) /usr/libexec/xr30-name-ml307r "/sys/class/net/$DEVICENAME" ;;
+	move) ;;
+	*) return 0 ;;
+esac
+[ ! -f /etc/xr30-cellular6-auto ] || /usr/libexec/xr30-cellular6

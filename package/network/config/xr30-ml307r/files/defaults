@@ -1,8 +1,12 @@
 #!/bin/sh
 . /lib/functions.sh
 
-# An existing cellular interface and its firewall policy belong to the user.
-uci -q get network.cellular >/dev/null && exit 0
+# Retained installations keep their UCI files. Resolve existing DHCPv6 clients
+# after netifd starts; an absent modem or a dynamic interface is normal at boot.
+if uci -q get network.cellular >/dev/null; then
+	uci -q get network.cellular6 >/dev/null || touch /etc/xr30-cellular6-auto
+	exit $?
+fi
 
 find_wan_zone() {
 	local name
@@ -19,10 +23,12 @@ case " $(uci -q get "firewall.$wan_zone.network") " in
 	*" cellular "*) ;;
 	*) uci add_list "firewall.$wan_zone.network=cellular" || exit 1 ;;
 esac
-uci batch <<'UCI'
+uci batch <<'UCI' || exit 1
 set network.cellular=interface
 set network.cellular.device='cell0'
 set network.cellular.proto='dhcp'
 set network.cellular.metric='100'
 set network.cellular.peerdns='1'
 UCI
+
+/usr/libexec/xr30-cellular6 factory
