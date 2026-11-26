@@ -202,6 +202,33 @@ priority. Swap modems and check that each receives its own lease on `cellular`.
 A UFI without a working SIM can still grant a local DHCP lease. Verify mobile
 Internet separately with an active data SIM.
 
+### Cellular IPv6
+
+A clean installation configures `cellular6` as an independent DHCPv6 client
+on the same USB data device. It accepts SLAAC, tries IA_NA, and requests PD
+without a prefix-length hint. It uses the cellular uplink firewall zone and
+the standard IPv6 allowances in the stock WAN rules. The client uses advertised
+routers and keeps source-specific routes. Its RA default routes have a metric
+offset of 4096 so wired routes win for otherwise equivalent sources and paths.
+IPv4 keeps its own DHCP lease when the modem offers IPv4 only.
+
+After a retained upgrade, the hotplug handlers check the actual USB device,
+UCI configuration and netifd interfaces. An existing DHCPv6 client keeps its
+name and settings. If the bearer has no client and its uplink zone is
+unambiguous, netifd receives a runtime `cellular6` interface. A reserved
+interface name, disabled configuration, ambiguous client ownership or
+unsuitable firewall zone suppresses automatic setup. To manage the client
+explicitly, define a DHCPv6 interface in UCI on the same bearer, or set
+`auto=0` on that interface to keep it disabled.
+
+Read `ubus call network.interface dump` and the matching DHCPv6 interface's
+`status`. Match its `l3_device` to `cellular`. For PSG, report the usable
+address and default route separately from the delegated `ipv6-prefix` and
+the LAN's `ipv6-prefix-assignment`. Verify reachability from the router
+and both LAN and Wi-Fi clients. Record the actual egress when wired WAN is
+also connected. With retained static/extended prefixes, verify IA_PD before
+reporting PD. The per-modem acceptance checks are in [the XR30 test list](TODO.md).
+
 ## Wireless defaults
 
 On a clean installation the integrated 5 GHz radio starts a LAN access point

@@ -174,6 +174,15 @@ jobs:
           done
           ls -lh "$target_dir" > "$OUTPUT_DIR/target-files.txt"
 
+      - name: Test XR30 cellular IPv6 defaults and lease handling
+        shell: bash
+        working-directory: ${{ env.BUILD_DIR }}
+        run: |
+          set -euo pipefail
+          make -j1 package/utils/ucode/host/compile
+          UCODE="$PWD/staging_dir/hostpkg/bin/ucode" python3 tests/xr30/test-cellular6.py -v \
+            2>&1 | tee "$OUTPUT_DIR/cellular6-tests.log"
+
       - name: Validate and collect artifacts
         shell: bash
         working-directory: ${{ env.BUILD_DIR }}
@@ -229,7 +238,7 @@ jobs:
           python3 .github/workflows/scripts/check-xr30-https-image.py \
             --rootfs "${rootfs[0]}" --manifest "$OUTPUT_DIR/xr30-installed-packages.manifest" \
             2>&1 | tee "$OUTPUT_DIR/https-image-check.log"
-          for pkg in xr30-ml307r kmod-usb-net kmod-usb-net-cdc-ether kmod-usb-net-rndis wifi-scripts wpad-basic-mbedtls; do
+          for pkg in xr30-ml307r kmod-usb-net kmod-usb-net-cdc-ether kmod-usb-net-rndis odhcp6c odhcpd-ipv6only firewall4 ucode-mod-uci ucode-mod-ubus ucode-mod-fs wifi-scripts wpad-basic-mbedtls; do
             grep -Fq "$pkg - " "$OUTPUT_DIR/xr30-installed-packages.manifest"
           done
           for module in usbnet cdc_ether rndis_host; do
@@ -242,6 +251,13 @@ jobs:
           grep -Fxq rndis_host "${rootfs[0]}/etc/modules.d/usb-net-rndis"
           cmp package/network/config/xr30-ml307r/files/name-device "${rootfs[0]}/usr/libexec/xr30-name-ml307r"
           cmp package/network/config/xr30-ml307r/files/defaults "${rootfs[0]}/etc/uci-defaults/90-xr30-ml307r"
+          test -x "${rootfs[0]}/usr/libexec/xr30-cellular6"
+          test -x "${rootfs[0]}/usr/sbin/odhcp6c"
+          cmp package/network/config/xr30-ml307r/files/cellular6.uc "${rootfs[0]}/usr/libexec/xr30-cellular6"
+          cmp package/network/config/xr30-ml307r/files/hotplug "${rootfs[0]}/etc/hotplug.d/net/15-xr30-ml307r"
+          cmp package/network/config/xr30-ml307r/files/iface "${rootfs[0]}/etc/hotplug.d/iface/99-xr30-cellular6"
+          cmp package/network/ipv6/odhcp6c/files/dhcpv6.sh "${rootfs[0]}/lib/netifd/proto/dhcpv6.sh"
+          cmp package/network/ipv6/odhcp6c/files/dhcpv6.script "${rootfs[0]}/lib/netifd/dhcpv6.script"
           cmp package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc "${rootfs[0]}/lib/wifi/mac80211.uc"
           cp tests/xr30/check-management-https.sh docs/xr30/HTTPS-ACCEPTANCE.md "$OUTPUT_DIR/"
           printf 'PENDING: complete HTTPS-ACCEPTANCE.md on hardware before publishing a release.\n' > "$OUTPUT_DIR/HTTPS_HARDWARE_PENDING.txt"
@@ -281,6 +297,8 @@ jobs:
           Tailscale, OpenClash and their LuCI apps are installed separately after flashing.
           Fresh defaults: LAN/failsafe 192.168.10.1/24; LAN DHCP pool .100-.249, 12h leases.
           Cellular DHCP: attach one ML307R, UFI001C or UFI003C; working wired WAN takes priority.
+          Cellular IPv6: cellular6 requests an address and PD. Retained configurations can use an existing DHCPv6 interface.
+          Verify router IPv6 and delegated LAN/Wi-Fi connectivity separately for each modem and APN.
           Clean wireless setup: 5 GHz LAN AP, WPA2-PSK/CCMP, CN channel 36 at up to 80 MHz.
           The factory Wi-Fi passphrase is public. Set the country for your location. The 2.4 GHz radio starts disabled.
           Preserving settings during sysupgrade preserves the old LAN/DHCP configuration.
