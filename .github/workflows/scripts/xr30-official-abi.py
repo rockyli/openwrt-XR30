@@ -103,8 +103,9 @@ def check_image(build, output):
     packages = dict(line.split(" - ", 1) for line in manifest.splitlines())
     version = f"{kernel['version']}~{kernel['vermagic']}-r{kernel['release']}"
     require(packages.get("kernel") == version, "Installed kernel package ABI differs from official release")
-    for package in ("kmod-tun", "kmod-inet-diag", "kmod-nft-tproxy", "tailscale",
-                    "luci-app-tailscale-community", "luci-app-openclash"):
+    for package in ("tailscale", "kmod-tun", "ca-bundle"):
+        require(package in packages, f"Remote management package missing: {package}")
+    for package in ("kmod-inet-diag", "kmod-nft-tproxy", "luci-app-tailscale-community", "luci-app-openclash"):
         require(package not in packages, f"Optional package unexpectedly preinstalled: {package}")
     rootfs = one(build.glob("build_dir/target-*/linux-mediatek_filogic/target-dir-*"), "device rootfs")
     feed = (rootfs / "etc/apk/repositories.d/distfeeds.list").read_text()

@@ -241,9 +241,17 @@ jobs:
           for pkg in xr30-ml307r kmod-usb-net kmod-usb-net-cdc-ether kmod-usb-net-rndis odhcp6c odhcpd-ipv6only firewall4 ucode-mod-uci ucode-mod-ubus ucode-mod-fs wifi-scripts wpad-basic-mbedtls; do
             grep -Fq "$pkg - " "$OUTPUT_DIR/xr30-installed-packages.manifest"
           done
-          for module in usbnet cdc_ether rndis_host; do
+          for module in usbnet cdc_ether rndis_host tun; do
             test -n "$(find "${rootfs[0]}/lib/modules" -type f -name "$module.ko*" -print -quit)"
           done
+          for executable in usr/sbin/tailscale usr/sbin/tailscaled etc/init.d/tailscale etc/rc.d/S80tailscale; do
+            test -x "${rootfs[0]}/$executable"
+          done
+          test -s "${rootfs[0]}/etc/config/tailscale"
+          grep -Eq '^/etc/config/tailscale [[:xdigit:]]{64}$' "${rootfs[0]}/lib/apk/packages/tailscale.conffiles_static"
+          grep -Fxq /etc/tailscale/ "${rootfs[0]}/lib/upgrade/keep.d/tailscale"
+          test ! -e "${rootfs[0]}/etc/tailscale/tailscaled.state"
+          test ! -L "${rootfs[0]}/etc/tailscale/tailscaled.state"
           test -x "${rootfs[0]}/usr/libexec/xr30-name-ml307r"
           test -s "${rootfs[0]}/etc/hotplug.d/net/15-xr30-ml307r"
           test -s "${rootfs[0]}/etc/uci-defaults/90-xr30-ml307r"
@@ -291,10 +299,12 @@ jobs:
           Run check-management-https.sh and complete HTTPS-ACCEPTANCE.md before release.
           Upgrade from older images: verify sysupgrade -l includes the certificate and key before flashing.
           Kernel configuration is derived from the pinned official release; ABI and kmod feed checks passed.
-          Optional TUN/INET diagnostics/TPROXY modules are compiled but not preinstalled.
-          Signed official feeds passed a simulated Tailscale and optional module installation.
+          Tailscale core and kmod-tun are installed in the device image. The daemon is enabled at boot.
+          Before upgrading, check sysupgrade -l for your active Tailscale state file (default /etc/tailscale/tailscaled.state).
+          After a retained upgrade, verify the original node ID, a fresh Tailnet SSH login and authenticated LuCI before running PSG.
+          Signed official feeds passed dependency simulation for the optional Tailscale LuCI panel, INET diagnostics and TPROXY modules.
           Actual module loading and application operation still require hardware validation.
-          Tailscale, OpenClash and their LuCI apps are installed separately after flashing.
+          OpenClash and the Tailscale/OpenClash LuCI apps can be installed separately after flashing.
           Fresh defaults: LAN/failsafe 192.168.10.1/24; LAN DHCP pool .100-.249, 12h leases.
           Cellular DHCP: attach one ML307R, UFI001C or UFI003C; working wired WAN takes priority.
           Cellular IPv6: cellular6 requests an address and PD. Retained configurations can use an existing DHCPv6 interface.

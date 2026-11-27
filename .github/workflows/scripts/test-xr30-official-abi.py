@@ -30,7 +30,8 @@ class OfficialABI(unittest.TestCase):
         values = abi.config(path.read_text())
         self.assertEqual(values["CONFIG_ALL_KMODS"], "y")
         self.assertEqual(values["CONFIG_KERNEL_KALLSYMS"], "n")
-        self.assertEqual(values["CONFIG_PACKAGE_kmod-tun"], "m")
+        self.assertEqual(values["CONFIG_PACKAGE_kmod-tun"], "y")
+        self.assertEqual(values["CONFIG_PACKAGE_tailscale"], "y")
         self.assertEqual(values["CONFIG_TARGET_ALL_PROFILES"], "n")
         self.assertNotIn("CONFIG_PACKAGE_luci-app-attendedsysupgrade", values)
         path.write_text(path.read_text().replace("CONFIG_ALL_KMODS=y", "# CONFIG_ALL_KMODS is not set"))
@@ -57,7 +58,8 @@ class OfficialABI(unittest.TestCase):
             "linux_kernel": self.kernel, "profiles": {"cmcc_xr30": {}}}))
         manifest = self.output / "xr30-installed-packages.manifest"
         k = self.kernel
-        manifest.write_text(f"kernel - {k['version']}~{k['vermagic']}-r{k['release']}\n")
+        manifest.write_text(f"kernel - {k['version']}~{k['vermagic']}-r{k['release']}\n"
+                            f"kmod-tun - {k['version']}-r1\ntailscale - 1.104.1-r1\nca-bundle - 1\n")
         feed = self.root / "build_dir/target-test/linux-mediatek_filogic/target-dir-12345678/etc/apk/repositories.d/distfeeds.list"
         feed.parent.mkdir(parents=True)
         feed.write_text(f"{self.lock['base_url']}/kmods/{k['version']}-{k['release']}-{k['vermagic']}/packages.adb\n")
@@ -71,9 +73,18 @@ class OfficialABI(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Wrong installed kmod feed"):
             abi.check_image(self.root, self.output)
         feed.write_text(good_feed)
-        manifest.write_text(manifest.read_text() + f"kmod-tun - {self.kernel['version']}-r1\n")
+        manifest.write_text(manifest.read_text() + f"kmod-inet-diag - {self.kernel['version']}-r1\n")
         with self.assertRaisesRegex(ValueError, "unexpectedly preinstalled"):
             abi.check_image(self.root, self.output)
+
+    def test_image_requires_remote_management_packages(self):
+        manifest, _ = self.image_fixture()
+        packages = manifest.read_text().splitlines(keepends=True)
+        for package in ("tailscale", "kmod-tun", "ca-bundle"):
+            with self.subTest(package=package):
+                manifest.write_text("".join(line for line in packages if not line.startswith(package + " - ")))
+                with self.assertRaisesRegex(ValueError, "Remote management package missing: " + package):
+                    abi.check_image(self.root, self.output)
 
     def test_image_rejects_incompatible_installed_kernel(self):
         manifest, _ = self.image_fixture()

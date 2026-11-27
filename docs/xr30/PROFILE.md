@@ -90,11 +90,11 @@ archive outputs are disabled; the underlying tools are built from the pinned
 source. The official build timestamp is retained. XR30 model, LED definitions,
 LAN defaults and version display remain customized.
 
-All available kernel module packages are selected for compilation, but optional
-modules such as `kmod-tun`, `kmod-inet-diag` and `kmod-nft-tproxy` are not installed
-in the firmware. Tailscale, OpenClash and their LuCI applications also remain
-separately installed. Standard dnsmasq is retained; OpenClash still requires
-its userspace dependencies, including dnsmasq-full, when installed later.
+The XR30 image includes the pinned OpenWrt Tailscale package, its CA bundle
+and `kmod-tun` for remote management after a settings-preserving upgrade.
+All available kernel module packages are selected for compilation.
+`kmod-inet-diag`, `kmod-nft-tproxy`, OpenClash and the Tailscale and OpenClash
+LuCI applications are optional. The base image uses standard dnsmasq.
 Attended Sysupgrade is not preinstalled: the public service does not know the
 custom XR30 profile, regardless of kernel ABI compatibility.
 
@@ -104,13 +104,10 @@ and stops before image generation if its ABI differs from the official value.
 It preserves the actual Linux config and mismatch report for diagnosis. No
 vermagic override or forced dependency installation is used.
 
-After building, CI checks `profiles.json`, the kernel package installed in the
-actual XR30 rootfs, and its generated official kmod feed URL. Using a separate
-copy of that rootfs and the installed signing keys, it updates official APK
-indexes and simulates installing Tailscale, its LuCI application and the three
-optional modules. The firmware itself remains unchanged by that check. Image
-validation is marked successful only after all checks pass. Actual module
-loading and application behavior still need device testing.
+After building, CI checks `profiles.json`, the installed kernel, the official
+kmod feed URL and the remote management files in the XR30 rootfs. It also
+simulates package installation against the signed official APK indexes using a
+copy of the rootfs. The hardware acceptance check below covers first boot.
 
 Candidate `59746ec748a5` booted and reported XR30, but its minimal kernel config
 had a different ABI and no matching module feed. Merely adding the official
@@ -121,19 +118,21 @@ before using the official module feed. Do not mix modules across incompatible
 candidates. Keep the matching packages artifact with each firmware as a record;
 locally built APKs have separate signing trust from the official repository.
 
-On the device, after upgrading with settings preserved:
+### Tailscale after a settings-preserving upgrade
 
-```sh
-apk update
-apk add --simulate kmod-tun tailscale luci-app-tailscale-community
-apk add kmod-tun tailscale luci-app-tailscale-community
-modprobe tun
-test -c /dev/net/tun && echo 'TUN device is available'
-```
+On the old firmware, record the node's `Self.ID` from `tailscale status --json`
+and check that the service is enabled. Confirm the private upgrade backup
+contains the active state file (default `/etc/tailscale/tailscaled.state`) and
+existing Tailnet management firewall rules. Use `sysupgrade -l` to check the
+backup list. If UCI sets `tailscale.settings.state_file` outside the package's
+preserved directory, add the actual path to `/etc/sysupgrade.conf` before
+creating the backup. Keep each node's credentials in its own private backup.
 
-A successful CI simulation is not a hardware test. Confirm module loading,
-Tailscale startup and preserved configuration on the intended device before
-considering this compatibility work validated.
+On first boot, procd starts the packaged daemon with the restored settings.
+Before running PSG, confirm the original `Self.ID` is online, then open a
+fresh SSH connection and log in to LuCI over HTTPS from an independent tailnet
+client. Exercise wired-only and cellular-only uplinks. Record time to recovery
+from reboot. A new installation requires enrollment by its owner.
 
 ## Default LAN and DHCP
 

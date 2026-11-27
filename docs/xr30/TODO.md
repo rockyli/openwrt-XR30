@@ -29,6 +29,21 @@
 [odhcp6c 协议配置](../../package/network/ipv6/odhcp6c/files/dhcpv6.sh)和
 [地址、路由与前缀的更新及撤销](../../package/network/ipv6/odhcp6c/files/dhcpv6.script)。
 
+## 远程管理 · 保留配置升级后自动恢复 Tailscale
+
+2026-11-27 已加入下一版构建配置，待完整构建和实机验证。#17 的已安装包清单里没有 `tailscale` 和 `kmod-tun`。
+目标是已注册且启用了 Tailscale 的 XR30 在保留配置升级后，凭本机身份自动上线，供机主从异地继续管理。
+
+- [x] 在 XR30 构建配置中选择 OpenWrt 官方 `tailscale` 包（CLI、`tailscaled`、procd 启动脚本）及
+  `kmod-tun`。扩充[镜像检查](../../.github/workflows/scripts/xr30-official-abi.py)以核对管理组件和身份保留规则。
+- [ ] 用完整构建核对实际 rootfs、FIT 镜像容量及内核 ABI。
+- [ ] 刷前以 `sysupgrade -l` 和实际备份归档核对 `/etc/config/tailscale`、当前启用的身份文件
+  （默认 `/etc/tailscale/tailscaled.state`）及管理防火墙配置。身份和私钥仅随本机私有备份恢复。
+  检查原有启用状态，保留机主手动停用的选择；全新安装由机主单独注册。
+- [ ] 保留配置升级后，在首次启动、尚未运行 PSG 安装程序时，分别验证仅有线、仅蜂窝场景。
+  从独立 Tailnet 客户端核对原节点 ID，新建 SSH 并实际登录 LuCI，记录重启至首次成功的时长。
+  SSH、HTTPS 保持既有 Tailnet 访问边界，蜂窝公网侧继续限制管理端口。
+
 ## 无线出厂设置和手动无线上行
 
 2026-11-24 确认。以下出厂设置适用于首次安装、恢复出厂设置和不保留配置升级。
