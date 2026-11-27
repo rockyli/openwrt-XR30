@@ -19,6 +19,8 @@ class Cellular6(unittest.TestCase):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
         self.root = Path(temp.name)
+        self.net = self.root / "net"
+        self.net.mkdir()
         helper = (FILES / "cellular6.uc").read_text()
         for module in ("uci", "fs", "ubus"):
             helper = helper.replace(f"from '{module}'", f"from './{module}.uc'")
@@ -54,7 +56,9 @@ export function connect() {
 };
 """)
         wrapper = self.root / "xr30-name-ml307r"
-        wrapper.write_text('#!/bin/sh\nexec sh "$MATCHER" --matches "$FIXTURES/${2##*/}"\n')
+        wrapper.write_text('#!/bin/sh\n'
+                           'if [ "$1" = --matches ]; then set -- "$1" "$FIXTURES/net/${2##*/}"; fi\n'
+                           'exec sh "$MATCHER" "$@"\n')
         wrapper.chmod(0o755)
         self.network = {
             "cellular": {".type": "interface", "proto": "dhcp", "device": "cell0"},
@@ -68,8 +72,14 @@ export function connect() {
                       "autostart": True, "device": "cell0"}]
 
     def modem(self, name, vid, pid, driver, product):
-        device = self.root / name / "device"
+        # Match sysfs through a hub: the NIC links to the USB function, whose
+        # parent carries idVendor, idProduct and the product string.
+        device = self.root / "usb1/1-1/1-1.2/1-1.2:1.0"
         device.mkdir(parents=True, exist_ok=True)
+        nic = self.net / name
+        nic.mkdir(exist_ok=True)
+        if not (nic / "device").exists():
+            (nic / "device").symlink_to(device)
         for key, value in [("product", product), ("idVendor", vid), ("idProduct", pid)]:
             (device.parent / key).write_text(value + "\n")
         link = device / "driver"
@@ -125,6 +135,45 @@ export function connect() {
         del self.network["cellular6"]
         self.network["cellular"]["auto"] = "0"
         self.assertIsNone(self.evaluate())
+
+    def test_usb_identity_at_boot_hotplug_and_ipv6_setup(self):
+        # Source the installed entry points against fixture paths. Record rename
+        # requests instead of changing host links or calling the host's UCI.
+        for name, command in {
+            "uci": '[ "$*" = "-q get network.cellular.device" ] && echo "$TARGET"',
+            "ip": 'echo "$*"',
+        }.items():
+            stub = self.root / name
+            stub.write_text("#!/bin/sh\n" + command + "\n")
+            stub.chmod(0o755)
+        for name in ("init", "hotplug"):
+            script = (FILES / name).read_text().replace("/sys/class/net", str(self.net))
+            script = script.replace("/usr/libexec", str(self.root))
+            script = script.replace("/etc/xr30-cellular6-auto", str(self.root / "auto"))
+            (self.root / name).write_text(script)
+
+        self.network["cellular"]["device"] = self.live[0]["device"] = "usb0"
+        for vid, pid, driver, label, accepted in [
+            ("18d1", "d001", "cdc_ether", "HandsomeMod Device", True),
+            ("18d1", "d001", "rndis_host", "HandsomeMod Device", True),
+            ("2ecc", "3012", "cdc_ether", "ML307R", True),
+            ("1234", "5678", "cdc_ether", "USB Ethernet", False),
+            ("1234", "d001", "cdc_ether", "HandsomeMod Device", False),
+            ("18d1", "d002", "cdc_ether", "HandsomeMod Device", False),
+            ("18d1", "d001", "cdc_ether", "HandsomeMod Device ", False),
+            ("18d1", "d001", "cdc_ncm", "HandsomeMod Device", False),
+            ("2ecc", "3012", "rndis_host", "ML307R", False),
+        ]:
+            with self.subTest(vid=vid, pid=pid, driver=driver, label=label):
+                self.modem("usb0", vid, pid, driver, label)
+                self.assertEqual(self.evaluate() is not None, accepted)
+                for target in ("ml307r0", "cell0"):
+                    env = dict(os.environ, PATH=str(self.root) + os.pathsep + os.environ["PATH"],
+                               TARGET=target, ACTION="add", DEVICENAME="usb0", MATCHER=str(FILES / "name-device"))
+                    for entry in ['. ./init && start', '. ./hotplug']:
+                        with self.subTest(target=target, entry=entry):
+                            out = subprocess.check_output(["sh", "-c", entry], cwd=self.root, env=env, text=True)
+                            self.assertEqual(out.strip(), f"link set dev usb0 name {target}" if accepted else "")
 
     def test_unrelated_hardware_and_conflicting_firewall(self):
         self.modem("cell0", "18d1", "d001", "rndis_host", "another device")

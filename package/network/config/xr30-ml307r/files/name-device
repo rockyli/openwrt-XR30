@@ -8,7 +8,7 @@ matches_modem() {
 	read -r product < "$path/../idProduct" || return 1
 	case "$vendor:$product:${driver##*/}" in
 		2ecc:3012:cdc_ether) return 0 ;;
-		18d1:d001:rndis_host)
+		18d1:d001:rndis_host|18d1:d001:cdc_ether)
 			IFS= read -r label < "$path/../product" && [ "$label" = 'HandsomeMod Device' ] ;;
 		*) return 1 ;;
 	esac

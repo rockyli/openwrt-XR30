@@ -180,9 +180,11 @@ hardware matrix independently of Sidecar installation.
 
 ## USB cellular uplink
 
-The XR30 image includes CDC Ethernet for the ML307R (`2ecc:3012`, `cdc_ether`)
-and RNDIS for the UFI001C and UFI003C (`18d1:d001`, product string
-`HandsomeMod Device`, `rndis_host`). Attach one modem at a time, directly or
+The XR30 image matches the ML307R on `2ecc:3012` with `cdc_ether`.
+For the UFI001C and UFI003C it requires `18d1:d001`, the exact product
+string `HandsomeMod Device`, and either `rndis_host` (RNDIS) or `cdc_ether`
+(CDC Ethernet). Boot discovery, hotplug naming and retained cellular6 setup
+all use this matcher. Attach one modem at a time, directly or
 via a USB hub. The net hotplug handler names the matching network device `cell0`. A scan before
 netifd starts covers a modem already attached at power-on. The `cellular`
 interface requests IPv4, gateway and DNS via DHCP and joins the default
